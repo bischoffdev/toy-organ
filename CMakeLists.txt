@@ -51,7 +51,6 @@ target_link_libraries(ToyOrgan PRIVATE
     juce::juce_audio_formats
     juce::juce_gui_basics
     juce::juce_gui_extra
-    juce_recommended_config_flags
-    juce_recommended_linter_flags
-    juce_recommended_warning_flags
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
 )
