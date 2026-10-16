@@ -3,19 +3,24 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+#include <vector>
+#include <array>
+
+class ToyOrganAudioProcessor;
 
 //==============================================================================
-/** A simple toy-organ synth voice for immediate audio feedback before samples are loaded. */
+/** A simple toy-organ synth voice for immediate audio feedback when samples are not loaded. */
 class ToyOrganVoice : public juce::SynthesiserVoice
 {
 public:
     ToyOrganVoice() = default;
 
     bool canPlaySound (juce::SynthesiserSound* sound) override;
-    void startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int /*currentPitchWheelPosition*/) override;
-    void stopNote (float /*velocity*/, bool allowTailOff) override;
-    void pitchWheelMoved (int /*newPitchWheelValue*/) override {}
-    void controllerMoved (int /*controllerNumber*/, int /*newControllerValue*/) override {}
+    void startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int currentPitchWheelPosition) override;
+    void stopNote (float velocity, bool allowTailOff) override;
+    void pitchWheelMoved (int) override {}
+    void controllerMoved (int, int) override {}
     void renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override;
 
 private:
@@ -29,20 +34,34 @@ private:
 class ToyOrganSound : public juce::SynthesiserSound
 {
 public:
-    ToyOrganSound() = default;
-    bool appliesToNote (int /*midiNoteNumber*/) override { return true; }
-    bool appliesToChannel (int /*midiChannel*/) override { return true; }
+    explicit ToyOrganSound (ToyOrganAudioProcessor& proc);
+    bool appliesToNote (int midiNoteNumber) override;
+    bool appliesToChannel (int midiChannel) override { juce::ignoreUnused (midiChannel); return true; }
+
+private:
+    ToyOrganAudioProcessor& processor;
 };
 
 //==============================================================================
-/** Represents one of the 12 organ keys and its sound/image configuration */
+/** Represents one of the 12 organ keys */
 struct OrganKeySlot
 {
     int noteNumber = 60; // 60 = Middle C (C4)
     juce::String keyName = "C";
+    bool isAccidental = false;
     juce::File sampleFile;
-    juce::Image idleImage;
-    juce::Image activeImage;
+};
+
+//==============================================================================
+/** Represents an active soundset with mascot pictures and sample files */
+struct SoundsetInfo
+{
+    juce::String name;
+    juce::File folder;
+    juce::Image mascotIdle;
+    juce::Image mascotActive;
+    bool hasSamples = false;
+    int sampleCount = 0;
 };
 
 //==============================================================================
@@ -86,10 +105,21 @@ public:
     //==============================================================================
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
     std::array<OrganKeySlot, 12>& getKeySlots() { return keySlots; }
+    const std::array<OrganKeySlot, 12>& getKeySlots() const { return keySlots; }
     juce::AudioFormatManager& getFormatManager() { return formatManager; }
 
-    // Helper for loading custom sound sets in future iterations
-    void loadSampleForSlot (int slotIndex, const juce::File& audioFile);
+    bool hasSampleForNote (int midiNoteNumber) const;
+    bool isAnyKeyPressed() const;
+    int getCurrentlyPressedNote() const;
+
+    // Soundset management
+    void scanForSoundsets();
+    juce::StringArray getSoundsetNames() const { return soundsetNames; }
+    int getCurrentSoundsetIndex() const { return currentSoundsetIndex; }
+    void loadSoundsetByIndex (int index);
+    const SoundsetInfo& getCurrentSoundset() const { return currentSoundset; }
+    juce::File getSoundsetsFolder() const;
+    void openSoundsetsFolder();
 
 private:
     juce::MidiKeyboardState keyboardState;
@@ -97,6 +127,12 @@ private:
     juce::AudioFormatManager formatManager;
 
     std::array<OrganKeySlot, 12> keySlots;
+    std::vector<juce::File> detectedSoundsetFolders;
+    juce::StringArray soundsetNames;
+    int currentSoundsetIndex = 0;
+    SoundsetInfo currentSoundset;
+
+    void loadSoundsetFromFolder (const juce::File& folder);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganAudioProcessor)
 };

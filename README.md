@@ -7,11 +7,31 @@ A customizable 12-key toy organ audio plugin (VST3, AU, Standalone) built with *
 ## Concept
 
 A playful, interactive 12-key sampler organ:
-* **12 Keys** (covering one full chromatic octave, C4 to B4).
-* **Two Visual States per Key:**
-  * **Idle:** Displayed when the key is waiting.
-  * **Active:** Displayed when the key is pressed (either via mouse click on the UI or via MIDI in your DAW).
-* **Sound Set Customization:** Ready to support loading custom sample folders (e.g. *Chicken Organ* ("gaak!"), *Bimmbammbömm Organ*, or classic retro organs).
+* **Classic Keyboard Layout:** 7 white keys (Ganztöne) with 5 elevated black keys (Halbtöne weiter oben, wie beim echten Klavier).
+* **Two Visual States per Soundset:**
+  * **Idle:** Displayed when the organ is waiting.
+  * **Active:** Displayed when any key is pressed (via mouse click on the UI or via MIDI in your DAW).
+* **Soundset System:** Each soundset lives in its own folder under `Soundsets/<Name>/` containing both the two mascot images (`idle.png` & `active.png`) and audio samples (`01_C.wav` .. `12_B.wav`, or a single sample).
+* **Synthesizer Fallback:** If a soundset has no sample files yet, the built-in organ additive synth seamlessly plays the notes.
+
+---
+
+## Soundset Folder Structure
+
+Place your soundsets in the `Soundsets/` directory (you can open it directly in the plugin via the **"📁 Ordner..."** button):
+
+```text
+Soundsets/
+└── Huhn/
+    ├── idle.png       # Bild im Ruhezustand
+    ├── active.png     # Bild beim Spielen / Gackern!
+    ├── 01_C.wav       # Audio-Sample für Note C
+    ├── 02_CSharp.wav  # Audio-Sample für C# (Halbton)
+    ├── ...
+    └── 12_B.wav       # Audio-Sample für B (H)
+```
+
+> **Tipp:** Wenn du nur ein einzelnes Sample hast (z.B. `gaak.wav`), wird dieses automatisch über alle 12 Tasten chromatisch gepitcht!
 
 ---
 
@@ -19,7 +39,7 @@ A playful, interactive 12-key sampler organ:
 
 The repository includes a ready-to-run GitHub Actions workflow in [`.github/workflows/build.yml`](.github/workflows/build.yml).
 
-Every time code is pushed or a pull request is made:
+Triggered manually via **Actions > Run workflow** or automatically when publishing a **Release**:
 1. **macOS Runner:** Compiles universal binaries (`arm64` & `x86_64`) for:
    * **VST3** (`Toy Organ.vst3`)
    * **Audio Unit / AU** (`Toy Organ.component`)
@@ -41,10 +61,8 @@ cd toy-organ
 # Initialize Git repository
 git init -b main
 git add .
-git commit -m "Initial commit: 12-key Toy Organ plugin with cross-platform CI/CD"
-
-# Create private repository on GitHub under bischoffdev using GitHub CLI
-gh repo create bischoffdev/toy-organ --private --source=. --remote=origin --push
+git commit -m "Add piano layout with elevated accidentals and soundset loader"
+git push origin main
 ```
 
 Once pushed, navigate to the **Actions** tab on your GitHub repository to watch the Mac and Windows builds run!
@@ -77,7 +95,8 @@ The compiled plugins will be located under `build/ToyOrgan_artefacts/Release/`.
 
 - [x] Cross-platform CMake & GitHub Actions CI/CD setup
 - [x] 12-key visual layout and interactive mouse/MIDI triggering
-- [x] Audio synthesis engine
-- [ ] Sound Set Loader (loading custom folders containing 12 `.wav`/`.ogg` audio files)
-- [ ] PNG image loading for Idle and Active character states above each key
-- [ ] Preset switching dropdown
+- [x] Piano keyboard geometry with elevated semitones (Halbtöne weiter oben)
+- [x] Audio synthesis engine & polyphonic sample player with auto-fallback
+- [x] Sound Set Loader (supporting custom folders with samples & idle/active images)
+- [x] Preset switching dropdown & quick folder reveal button
+

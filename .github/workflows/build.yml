@@ -1,11 +1,9 @@
 name: Build & Package Audio Plugins
 
 on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   build:
