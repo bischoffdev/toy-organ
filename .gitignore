@@ -1,0 +1,24 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+bin/
+
+# IDE files
+.idea/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+*.sln
+*.vcxproj*
+*.user
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# JUCE artifacts / intermediates
+*.vst3
+*.component
+*.app
+*.exe
