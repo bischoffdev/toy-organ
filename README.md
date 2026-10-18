@@ -1,4 +1,4 @@
-# Toy Organ 🎹
+# Laxersaz Organ 🎹
 
 A customizable 12-key toy organ audio plugin (VST3, AU, Standalone) built with **JUCE 8** and **CMake**, designed to work cross-platform on **macOS** and **Windows**.
 
@@ -8,10 +8,9 @@ A customizable 12-key toy organ audio plugin (VST3, AU, Standalone) built with *
 
 A playful, interactive 12-key sampler organ:
 * **Classic Keyboard Layout:** 7 white keys (Ganztöne) with 5 elevated black keys (Halbtöne weiter oben, wie beim echten Klavier).
-* **Two Visual States per Soundset:**
-  * **Idle:** Displayed when the organ is waiting.
-  * **Active:** Displayed when any key is pressed (via mouse click on the UI or via MIDI in your DAW).
-* **Soundset System:** Each soundset lives in its own folder under `Soundsets/<Name>/` containing both the two mascot images (`idle.png` & `active.png`) and audio samples (`01_C.wav` .. `12_B.wav`, or a single sample).
+* **Strict 12-Key Range:** Exclusively handles the 12 chromatic keys from C4 to B4 (MIDI notes 60 to 71).
+* **Mascot Character ON Each Key:** Each key features the mascot character right on the key (like a classic toy duck organ). When a key is played, that key's character instantly springs into its active singing state.
+* **Soundset System:** Each soundset lives in its own folder under `Soundsets/<Name>/` containing both the mascot images (`idle.png` & `active.png`) and audio samples (`01_C.wav` .. `12_B.wav`, or a single sample).
 * **Synthesizer Fallback:** If a soundset has no sample files yet, the built-in organ additive synth seamlessly plays the notes.
 
 ---
@@ -56,7 +55,7 @@ Triggered manually via **Actions > Run workflow** or automatically when publishi
 To publish this project to your GitHub account:
 
 ```bash
-cd toy-organ
+cd /Users/benjaminbischoff/Development/toy-organ
 
 # Initialize Git repository
 git init -b main

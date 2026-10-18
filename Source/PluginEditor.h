@@ -5,7 +5,7 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-/** Interactive visual representation of an organ key (White or Black/Halbton) */
+/** Interactive visual representation of an organ key with mascot character */
 class ToyOrganKeyView : public juce::Component
 {
 public:
@@ -30,23 +30,9 @@ private:
 
     void triggerNoteOn();
     void triggerNoteOff();
+    void drawVectorMascot (juce::Graphics& g, juce::Rectangle<float> area, bool pressed);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganKeyView)
-};
-
-//==============================================================================
-/** Mascot display stage showing Idle / Active pictures (e.g. Das Huhn) */
-class ToyOrganMascotView : public juce::Component
-{
-public:
-    explicit ToyOrganMascotView (ToyOrganAudioProcessor& processor);
-
-    void paint (juce::Graphics& g) override;
-
-private:
-    ToyOrganAudioProcessor& processor;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganMascotView)
 };
 
 //==============================================================================
@@ -71,19 +57,20 @@ public:
 private:
     ToyOrganAudioProcessor& audioProcessor;
 
-    // Visual subcomponents
+    // Visual subcomponents (12 keys: C4 to B4)
     std::vector<std::unique_ptr<ToyOrganKeyView>> keyViews;
-    ToyOrganMascotView mascotView;
 
     // Header controls
     juce::Label titleLabel;
-    juce::Label subtitleLabel;
     juce::Label soundsetLabel;
     juce::ComboBox soundsetComboBox;
+    juce::Label statusPillLabel;
     juce::TextButton openFolderButton;
     juce::TextButton refreshButton;
 
     void populateSoundsets();
+    void updateStatus();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganAudioProcessorEditor)
 };
+

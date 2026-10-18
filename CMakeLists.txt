@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ToyOrgan VERSION 0.1.0 LANGUAGES C CXX)
+project(LaxersazOrgan VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,9 +19,9 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_plugin(ToyOrgan
     COMPANY_NAME "BischoffDev"
     PLUGIN_MANUFACTURER_CODE Bsch
-    PLUGIN_CODE Torg
+    PLUGIN_CODE Lxso
     FORMATS VST3 AU Standalone
-    PRODUCT_NAME "Toy Organ"
+    PRODUCT_NAME "Laxersaz Organ"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
@@ -54,3 +54,21 @@ target_link_libraries(ToyOrgan PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
+
+# Automatically bundle factory Soundsets into Standalone target
+if (TARGET ToyOrgan_Standalone)
+    if (APPLE)
+        add_custom_command(TARGET ToyOrgan_Standalone POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/Soundsets
+            $<TARGET_FILE_DIR:ToyOrgan_Standalone>/../Resources/Soundsets
+        )
+    else()
+        add_custom_command(TARGET ToyOrgan_Standalone POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/Soundsets
+            $<TARGET_FILE_DIR:ToyOrgan_Standalone>/Soundsets
+        )
+    endif()
+endif()
+

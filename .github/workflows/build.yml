@@ -56,6 +56,7 @@ jobs:
           find build/ToyOrgan_artefacts -name "*.vst3" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           find build/ToyOrgan_artefacts -name "*.component" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           find build/ToyOrgan_artefacts -name "*.app" -exec cp -R {} artifacts/ \; 2>/dev/null || true
+          cp -R Soundsets artifacts/ 2>/dev/null || true
 
       - name: Stage Artifacts (Windows)
         if: runner.os == 'Windows'
@@ -64,10 +65,11 @@ jobs:
           mkdir -p artifacts
           find build/ToyOrgan_artefacts -name "*.vst3" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           find build/ToyOrgan_artefacts -name "*.exe" -exec cp -R {} artifacts/ \; 2>/dev/null || true
+          cp -R Soundsets artifacts/ 2>/dev/null || true
 
       - name: Upload Plugin Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ToyOrgan-${{ matrix.platform_name }}
+          name: LaxersazOrgan-${{ matrix.platform_name }}
           path: artifacts/
           if-no-files-found: warn

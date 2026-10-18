@@ -9,6 +9,10 @@ ToyOrganSound::ToyOrganSound (ToyOrganAudioProcessor& proc)
 
 bool ToyOrganSound::appliesToNote (int midiNoteNumber)
 {
+    // Strictly ONLY support the 12 organ keys (MIDI 60 to 71 = C4 to B4)
+    if (midiNoteNumber < 60 || midiNoteNumber > 71)
+        return false;
+
     // Fallback synth only sounds if no custom sample is handling this note
     return ! processor.hasSampleForNote (midiNoteNumber);
 }
@@ -21,6 +25,9 @@ bool ToyOrganVoice::canPlaySound (juce::SynthesiserSound* sound)
 
 void ToyOrganVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int)
 {
+    if (midiNoteNumber < 60 || midiNoteNumber > 71)
+        return;
+
     currentAngle = 0.0;
     level = velocity * 0.25f;
     tailOff = 0.0f;
@@ -185,6 +192,25 @@ void ToyOrganAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+    // Filter incoming MIDI to strictly ONLY support the 12 keys (MIDI notes 60 to 71 = C4 to B4)
+    juce::MidiBuffer filteredMidi;
+    for (const auto metadata : midiMessages)
+    {
+        auto msg = metadata.getMessage();
+        if (msg.isNoteOnOrOff())
+        {
+            int note = msg.getNoteNumber();
+            if (note >= 60 && note < 72)
+                filteredMidi.addEvent (msg, metadata.samplePosition);
+        }
+        else
+        {
+            filteredMidi.addEvent (msg, metadata.samplePosition);
+        }
+    }
+    midiMessages.clear();
+    midiMessages.addEvents (filteredMidi, 0, buffer.getNumSamples(), 0);
+
     // Connect GUI / on-screen key presses to the audio MIDI stream
     keyboardState.processNextMidiBuffer (midiMessages, 0, buffer.getNumSamples(), true);
 
@@ -246,25 +272,39 @@ int ToyOrganAudioProcessor::getCurrentlyPressedNote() const
 
 juce::File ToyOrganAudioProcessor::getSoundsetsFolder() const
 {
-    // 1. Check local repo path if running in dev environment
-    juce::File devRepo ("toy-organ/Soundsets");
-    if (devRepo.isDirectory())
-        return devRepo;
+    // 1. Current working directory (e.g. running from terminal or project root)
+    auto cwdSoundsets = juce::File::getCurrentWorkingDirectory().getChildFile ("Soundsets");
+    if (cwdSoundsets.isDirectory() && cwdSoundsets.getNumberOfChildFiles (juce::File::findDirectories) > 0)
+        return cwdSoundsets;
 
-    juce::File devScratch ("");
-    if (devScratch.isDirectory())
-        return devScratch;
+    // 2. Search upwards from the current executable or app bundle (locates repo root when running from build/)
+    auto dir = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+    for (int i = 0; i < 8; ++i)
+    {
+        dir = dir.getParentDirectory();
+        if (! dir.isDirectory() || dir.isRoot())
+            break;
 
-    // 2. Next to executable
-    auto execDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
-    auto nextToExec = execDir.getChildFile ("Soundsets");
-    if (nextToExec.isDirectory())
-        return nextToExec;
+        auto candidate = dir.getChildFile ("Soundsets");
+        if (candidate.isDirectory() && candidate.getNumberOfChildFiles (juce::File::findDirectories) > 0)
+            return candidate;
 
-    // 3. User Music directory (default for installed plugin)
-    auto userMusicDir = juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("ToyOrgan/Soundsets");
+        // macOS app bundle Resources directory
+        auto bundleRes = dir.getChildFile ("Resources/Soundsets");
+        if (bundleRes.isDirectory() && bundleRes.getNumberOfChildFiles (juce::File::findDirectories) > 0)
+            return bundleRes;
+    }
+
+    // 3. User Music directory (default standard location for user soundsets and installed plugin)
+    auto userMusicDir = juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("LaxersazOrgan/Soundsets");
     if (! userMusicDir.exists())
+    {
+        auto legacyDir = juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("ToyOrgan/Soundsets");
+        if (legacyDir.isDirectory() && legacyDir.getNumberOfChildFiles (juce::File::findDirectories) > 0)
+            return legacyDir;
+
         userMusicDir.createDirectory();
+    }
 
     return userMusicDir;
 }
@@ -283,15 +323,53 @@ void ToyOrganAudioProcessor::scanForSoundsets()
     detectedSoundsetFolders.clear();
     soundsetNames.clear();
 
-    auto soundsetsDir = getSoundsetsFolder();
-    if (! soundsetsDir.exists())
-        soundsetsDir.createDirectory();
+    auto primaryDir = getSoundsetsFolder();
+    if (! primaryDir.exists())
+        primaryDir.createDirectory();
 
-    auto subdirs = soundsetsDir.findChildFiles (juce::File::findDirectories, false);
+    auto userMusicDir = juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("LaxersazOrgan/Soundsets");
+    if (! userMusicDir.exists())
+    {
+        auto legacyDir = juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("ToyOrgan/Soundsets");
+        if (legacyDir.isDirectory() && legacyDir.getNumberOfChildFiles (juce::File::findDirectories) > 0)
+            userMusicDir = legacyDir;
+    }
+
+    // Automatically seed user music directory with factory soundsets if running from repo / bundle
+    if (primaryDir != userMusicDir && primaryDir.isDirectory())
+    {
+        if (! userMusicDir.exists())
+            userMusicDir.createDirectory();
+
+        auto factorySets = primaryDir.findChildFiles (juce::File::findDirectories, false);
+        for (const auto& fset : factorySets)
+        {
+            auto dest = userMusicDir.getChildFile (fset.getFileName());
+            if (! dest.exists())
+                fset.copyDirectoryTo (dest);
+        }
+    }
+
+    // Scan primary soundset directory
+    auto subdirs = primaryDir.findChildFiles (juce::File::findDirectories, false);
     for (auto& dir : subdirs)
     {
         detectedSoundsetFolders.push_back (dir);
         soundsetNames.add (dir.getFileName());
+    }
+
+    // Also scan userMusicDir if distinct from primaryDir to pick up any custom soundsets
+    if (primaryDir != userMusicDir && userMusicDir.isDirectory())
+    {
+        auto userSubdirs = userMusicDir.findChildFiles (juce::File::findDirectories, false);
+        for (auto& dir : userSubdirs)
+        {
+            if (! soundsetNames.contains (dir.getFileName()))
+            {
+                detectedSoundsetFolders.push_back (dir);
+                soundsetNames.add (dir.getFileName());
+            }
+        }
     }
 
     if (soundsetNames.isEmpty())

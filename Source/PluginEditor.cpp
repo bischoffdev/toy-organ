@@ -52,206 +52,189 @@ void ToyOrganKeyView::setIsPressed (bool pressed)
     }
 }
 
+void ToyOrganKeyView::drawVectorMascot (juce::Graphics& g, juce::Rectangle<float> area, bool pressed)
+{
+    auto center = area.getCentre();
+    float radius = juce::jmin (area.getWidth(), area.getHeight()) * 0.40f;
+
+    // Head
+    g.setColour (juce::Colour (0xFFFFD43B));
+    g.fillEllipse (center.x - radius, center.y - radius * 0.9f, radius * 2.0f, radius * 1.9f);
+
+    // Comb (Kamm) on top
+    g.setColour (juce::Colour (0xFFFF4757));
+    g.fillEllipse (center.x - radius * 0.35f, center.y - radius * 1.25f, radius * 0.7f, radius * 0.5f);
+
+    // Eyes
+    g.setColour (juce::Colour (0xFF2F3542));
+    if (pressed)
+    {
+        // Happy singing eyes (> <)
+        g.setFont (juce::FontOptions (radius * 0.65f, juce::Font::bold));
+        g.drawText (">", juce::Rectangle<float> (center.x - radius * 0.55f, center.y - radius * 0.4f, radius * 0.5f, radius * 0.5f), juce::Justification::centred, false);
+        g.drawText ("<", juce::Rectangle<float> (center.x + radius * 0.05f, center.y - radius * 0.4f, radius * 0.5f, radius * 0.5f), juce::Justification::centred, false);
+
+        // Wide open beak (singing!)
+        g.setColour (juce::Colour (0xFFFF7675));
+        juce::Path beak;
+        beak.startNewSubPath (center.x - radius * 0.45f, center.y + radius * 0.05f);
+        beak.lineTo (center.x + radius * 0.45f, center.y + radius * 0.05f);
+        beak.lineTo (center.x, center.y + radius * 0.65f);
+        beak.closeSubPath();
+        g.fillPath (beak);
+    }
+    else
+    {
+        // Calm resting eyes (• •)
+        float eyeSize = radius * 0.22f;
+        g.fillEllipse (center.x - radius * 0.45f, center.y - radius * 0.25f, eyeSize, eyeSize);
+        g.fillEllipse (center.x + radius * 0.25f, center.y - radius * 0.25f, eyeSize, eyeSize);
+
+        // Small closed beak
+        g.setColour (juce::Colour (0xFFFA8231));
+        juce::Path beak;
+        beak.startNewSubPath (center.x - radius * 0.3f, center.y + radius * 0.1f);
+        beak.lineTo (center.x + radius * 0.3f, center.y + radius * 0.1f);
+        beak.lineTo (center.x, center.y + radius * 0.45f);
+        beak.closeSubPath();
+        g.fillPath (beak);
+    }
+}
+
 void ToyOrganKeyView::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
     const auto& slot = processor.getKeySlots()[(size_t) slotIndex];
+    const auto& soundset = processor.getCurrentSoundset();
+
+    juce::Image imgToDraw;
+    if (isPressed && soundset.mascotActive.isValid())
+        imgToDraw = soundset.mascotActive;
+    else if (soundset.mascotIdle.isValid())
+        imgToDraw = soundset.mascotIdle;
 
     if (isAccidental)
     {
         // =====================================================================
-        // BLACK KEY (Halbton) - Arranged "weiter oben"
+        // BLACK KEY (Halbton) - Shorter, elevated "weiter oben"
         // =====================================================================
         // Soft drop shadow cast onto white keys below
-        g.setColour (juce::Colour (0x3A000000));
-        g.fillRoundedRectangle (bounds.translated (0.0f, 3.5f).reduced (1.0f, 0.0f), 6.0f);
+        g.setColour (juce::Colour (0x38000000));
+        g.fillRoundedRectangle (bounds.translated (0.0f, 4.0f).reduced (1.0f, 0.0f), 7.0f);
 
         auto keyRect = bounds.reduced (1.0f, 0.0f);
-        keyRect.removeFromBottom (3.0f);
+        keyRect.removeFromBottom (3.5f);
 
         // Body gradient: obsidian to deep graphite
-        juce::Colour topColor = isPressed ? juce::Colour (0xFF4B5563) : juce::Colour (0xFF333842);
-        juce::Colour botColor = isPressed ? juce::Colour (0xFF1F2937) : juce::Colour (0xFF14171E);
+        juce::Colour topColor = isPressed ? juce::Colour (0xFF475569) : juce::Colour (0xFF333842);
+        juce::Colour botColor = isPressed ? juce::Colour (0xFF1E293B) : juce::Colour (0xFF111827);
 
         g.setGradientFill (juce::ColourGradient (topColor, keyRect.getCentreX(), keyRect.getY(),
                                                 botColor, keyRect.getCentreX(), keyRect.getBottom(), false));
 
-        // Rounded bottom edge (like real piano sharps)
         juce::Path keyPath;
         keyPath.addRoundedRectangle (keyRect.getX(), keyRect.getY(), keyRect.getWidth(), keyRect.getHeight(),
-                                     5.0f, 5.0f, false, false, true, true);
+                                     6.0f, 6.0f, false, false, true, true);
         g.fillPath (keyPath);
 
-        // Subtle 3D top-left bevel highlight
-        g.setColour (isPressed ? juce::Colour (0x66FF6B6B) : juce::Colour (0x22FFFFFF));
-        g.strokePath (keyPath, juce::PathStrokeType (isPressed ? 1.8f : 1.0f));
+        // Key border / glow highlight
+        g.setColour (isPressed ? juce::Colour (0xFFFF7675) : juce::Colour (0x28FFFFFF));
+        g.strokePath (keyPath, juce::PathStrokeType (isPressed ? 2.0f : 1.0f));
 
-        // Note label at the bottom of the black key
+        // Note label at bottom
+        auto labelRect = juce::Rectangle<float> (keyRect.getX(), keyRect.getBottom() - 26.0f, keyRect.getWidth(), 22.0f);
         g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
         g.setColour (isPressed ? juce::Colour (0xFFFFE66D) : juce::Colour (0xFFE2E8F0));
-        auto labelRect = keyRect.removeFromBottom (26.0f);
         g.drawText (slot.keyName, labelRect, juce::Justification::centred, false);
+
+        // Mascot character medallion on the black key
+        float badgeSize = juce::jmin (keyRect.getWidth() - 10.0f, 52.0f);
+        float badgeY = labelRect.getY() - badgeSize - 6.0f;
+        auto badgeRect = juce::Rectangle<float> (keyRect.getCentreX() - badgeSize * 0.5f,
+                                                 badgeY + (isPressed ? 1.5f : 0.0f),
+                                                 badgeSize, badgeSize);
+
+        // Badge background
+        g.setColour (isPressed ? juce::Colour (0xFF3B2727) : juce::Colour (0xFF1F2430));
+        g.fillEllipse (badgeRect);
+        g.setColour (isPressed ? juce::Colour (0xFFFF6B6B) : juce::Colour (0x44FFFFFF));
+        g.drawEllipse (badgeRect, isPressed ? 1.8f : 1.0f);
+
+        // Mascot image or vector fallback
+        auto imgArea = badgeRect.reduced (3.0f);
+        if (imgToDraw.isValid())
+        {
+            g.drawImage (imgToDraw, imgArea,
+                         juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
+        }
+        else
+        {
+            drawVectorMascot (g, imgArea, isPressed);
+        }
     }
     else
     {
         // =====================================================================
         // WHITE KEY (Ganzton) - Full height foundation
         // =====================================================================
-        auto keyRect = bounds.reduced (1.0f, 0.0f);
-        keyRect.removeFromBottom (2.0f);
+        auto keyRect = bounds.reduced (1.2f, 0.0f);
+        keyRect.removeFromBottom (3.0f);
 
-        // Warm ivory vs joyful pressed yellow
+        // Warm ivory vs pressed golden-yellow
         juce::Colour topColor = isPressed ? juce::Colour (0xFFFFFBEB) : juce::Colour (0xFFFFFFFF);
-        juce::Colour botColor = isPressed ? juce::Colour (0xFFFFE69C) : juce::Colour (0xFFF1F3F5);
+        juce::Colour botColor = isPressed ? juce::Colour (0xFFFFE69C) : juce::Colour (0xFFF1F5F9);
 
         g.setGradientFill (juce::ColourGradient (topColor, keyRect.getCentreX(), keyRect.getY(),
                                                 botColor, keyRect.getCentreX(), keyRect.getBottom(), false));
 
         juce::Path keyPath;
         keyPath.addRoundedRectangle (keyRect.getX(), keyRect.getY(), keyRect.getWidth(), keyRect.getHeight(),
-                                     7.0f, 7.0f, false, false, true, true);
+                                     8.0f, 8.0f, false, false, true, true);
         g.fillPath (keyPath);
 
-        // Key border / separation crack
-        g.setColour (isPressed ? juce::Colour (0xFFF59E0B) : juce::Colour (0xFFD0D7DE));
-        g.strokePath (keyPath, juce::PathStrokeType (isPressed ? 1.8f : 1.0f));
+        // Key border
+        g.setColour (isPressed ? juce::Colour (0xFFF59E0B) : juce::Colour (0xFFCBD5E1));
+        g.strokePath (keyPath, juce::PathStrokeType (isPressed ? 2.2f : 1.2f));
 
-        // Note label at the bottom of the white key
-        g.setFont (juce::FontOptions (14.0f, juce::Font::bold));
+        // Note label at bottom of white key
+        auto labelRect = juce::Rectangle<float> (keyRect.getX(), keyRect.getBottom() - 34.0f, keyRect.getWidth(), 30.0f);
+        g.setFont (juce::FontOptions (16.0f, juce::Font::bold));
         g.setColour (isPressed ? juce::Colour (0xFFB45309) : juce::Colour (0xFF334155));
-        auto labelRect = keyRect.removeFromBottom (32.0f);
         g.drawText (slot.keyName, labelRect, juce::Justification::centred, false);
-    }
-}
 
-//==============================================================================
-ToyOrganMascotView::ToyOrganMascotView (ToyOrganAudioProcessor& proc)
-    : processor (proc)
-{
-}
+        // Mascot character medallion on the lower portion of the white key
+        // (Positioned safely below where black keys hang down, completely unobstructed)
+        float badgeSize = juce::jmin (keyRect.getWidth() - 16.0f, 96.0f);
+        float badgeY = labelRect.getY() - badgeSize - 10.0f;
+        auto badgeRect = juce::Rectangle<float> (keyRect.getCentreX() - badgeSize * 0.5f,
+                                                 badgeY + (isPressed ? 2.0f : 0.0f),
+                                                 badgeSize, badgeSize);
 
-void ToyOrganMascotView::paint (juce::Graphics& g)
-{
-    auto bounds = getLocalBounds().toFloat().reduced (2.0f);
-    const auto& soundset = processor.getCurrentSoundset();
-    bool anyPressed = processor.isAnyKeyPressed();
+        // Circular frame badge
+        g.setColour (isPressed ? juce::Colour (0xFFFFF7ED) : juce::Colour (0xFFF8FAFC));
+        g.fillEllipse (badgeRect);
+        g.setColour (isPressed ? juce::Colour (0xFFF97316) : juce::Colour (0xFFE2E8F0));
+        g.drawEllipse (badgeRect, isPressed ? 2.4f : 1.4f);
 
-    // 1. Retro Screen Bezel Frame
-    g.setColour (juce::Colour (0x15000000));
-    g.fillRoundedRectangle (bounds.translated (0.0f, 2.5f), 14.0f);
-
-    juce::Colour bgTop = anyPressed ? juce::Colour (0xFFFFF9DB) : juce::Colour (0xFFFAFAFD);
-    juce::Colour bgBot = anyPressed ? juce::Colour (0xFFFFEEAA) : juce::Colour (0xFFEEF2F7);
-
-    g.setGradientFill (juce::ColourGradient (bgTop, bounds.getCentreX(), bounds.getY(),
-                                            bgBot, bounds.getCentreX(), bounds.getBottom(), false));
-    g.fillRoundedRectangle (bounds, 14.0f);
-
-    g.setColour (anyPressed ? juce::Colour (0xFFFF6B6B) : juce::Colour (0xFFCBD5E1));
-    g.drawRoundedRectangle (bounds, 14.0f, anyPressed ? 2.2f : 1.5f);
-
-    // 2. Soundset Status Pill Badge at bottom
-    auto bottomBadge = bounds.removeFromBottom (26.0f).reduced (10.0f, 2.0f);
-    g.setColour (juce::Colour (0x20000000));
-    g.fillRoundedRectangle (bottomBadge, 6.0f);
-
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-    g.setColour (juce::Colour (0xFF475569));
-    juce::String statusText = "🐔 " + soundset.name;
-    if (soundset.hasSamples)
-        statusText += " (" + juce::String (soundset.sampleCount) + " Samples geladen)";
-    else
-        statusText += " (Orgel-Synth Modus)";
-    g.drawText (statusText, bottomBadge, juce::Justification::centred, false);
-
-    // 3. Display Idle / Active Character Picture
-    auto characterArea = bounds.reduced (8.0f);
-
-    juce::Image imageToDraw;
-    if (anyPressed && soundset.mascotActive.isValid())
-        imageToDraw = soundset.mascotActive;
-    else if (soundset.mascotIdle.isValid())
-        imageToDraw = soundset.mascotIdle;
-
-    if (imageToDraw.isValid())
-    {
-        g.drawImage (imageToDraw,
-                     characterArea,
-                     juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
-    }
-    else
-    {
-        // Fallback Vector Cartoon Mascot (Chicken illustration)
-        auto center = characterArea.getCentre();
-        float radius = juce::jmin (characterArea.getWidth(), characterArea.getHeight()) * 0.38f;
-
-        // Chicken head
-        g.setColour (juce::Colour (0xFFFFD43B));
-        g.fillEllipse (center.x - radius, center.y - radius, radius * 2.0f, radius * 2.0f);
-
-        // Chicken comb (Kamm) on top
-        g.setColour (juce::Colour (0xFFFF4757));
-        g.fillEllipse (center.x - 12.0f, center.y - radius - 10.0f, 24.0f, 16.0f);
-
-        // Eyes
-        g.setColour (juce::Colour (0xFF2F3542));
-        if (anyPressed)
+        // Mascot image or vector fallback
+        auto imgArea = badgeRect.reduced (4.0f);
+        if (imgToDraw.isValid())
         {
-            // Happy singing eyes (> <)
-            g.setFont (juce::FontOptions (16.0f, juce::Font::bold));
-            g.drawText (">", juce::Rectangle<float> (center.x - radius * 0.5f, center.y - radius * 0.3f, 16.0f, 16.0f), juce::Justification::centred, false);
-            g.drawText ("<", juce::Rectangle<float> (center.x + radius * 0.1f, center.y - radius * 0.3f, 16.0f, 16.0f), juce::Justification::centred, false);
-
-            // Wide open beak (GAAK!)
-            g.setColour (juce::Colour (0xFFFF7675));
-            juce::Path beak;
-            beak.startNewSubPath (center.x - 14.0f, center.y + 2.0f);
-            beak.lineTo (center.x + 14.0f, center.y + 2.0f);
-            beak.lineTo (center.x, center.y + 18.0f);
-            beak.closeSubPath();
-            g.fillPath (beak);
+            g.drawImage (imgToDraw, imgArea,
+                         juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
         }
         else
         {
-            // Calm resting eyes (• •)
-            g.fillEllipse (center.x - radius * 0.4f, center.y - radius * 0.2f, 6.0f, 6.0f);
-            g.fillEllipse (center.x + radius * 0.2f, center.y - radius * 0.2f, 6.0f, 6.0f);
-
-            // Small closed beak
-            g.setColour (juce::Colour (0xFFFA8231));
-            juce::Path beak;
-            beak.startNewSubPath (center.x - 9.0f, center.y + 4.0f);
-            beak.lineTo (center.x + 9.0f, center.y + 4.0f);
-            beak.lineTo (center.x, center.y + 14.0f);
-            beak.closeSubPath();
-            g.fillPath (beak);
+            drawVectorMascot (g, imgArea, isPressed);
         }
-    }
-
-    // 4. Speech bubble or note indicator when active
-    if (anyPressed)
-    {
-        auto bubbleArea = juce::Rectangle<float> (bounds.getRight() - 95.0f, bounds.getY() + 8.0f, 85.0f, 32.0f);
-        g.setColour (juce::Colour (0xFFFF4757));
-        g.fillRoundedRectangle (bubbleArea, 12.0f);
-
-        int pressedNote = processor.getCurrentlyPressedNote();
-        juce::String noteTxt = "GAAK! 🎵";
-        if (pressedNote >= 60 && pressedNote < 72)
-            noteTxt = processor.getKeySlots()[(size_t) (pressedNote - 60)].keyName + " 🎵";
-
-        g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
-        g.setColour (juce::Colours::white);
-        g.drawText (noteTxt, bubbleArea, juce::Justification::centred, false);
     }
 }
 
 //==============================================================================
 ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p), mascotView (p)
+    : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // Create the 12 organ key visualizers
-    // 0: C, 1: C#, 2: D, 3: D#, 4: E, 5: F, 6: F#, 7: G, 8: G#, 9: A, 10: A#, 11: B
+    // Create the 12 organ key visualizers (C4 to B4)
     for (int i = 0; i < 12; ++i)
     {
         bool isAccidental = (i == 1 || i == 3 || i == 6 || i == 8 || i == 10);
@@ -269,19 +252,11 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
     for (int idx : blackSlotIndices)
         addAndMakeVisible (*keyViews[(size_t) idx]);
 
-    // Mascot Display
-    addAndMakeVisible (mascotView);
-
-    // Title & header labels
-    titleLabel.setText ("🎹 TOY ORGAN", juce::dontSendNotification);
-    titleLabel.setFont (juce::FontOptions (24.0f, juce::Font::bold));
+    // Title label
+    titleLabel.setText (juce::CharPointer_UTF8 ("\xf0\x9f\x8e\xb9 LAXERSAZ ORGAN"), juce::dontSendNotification); // 🎹 LAXERSAZ ORGAN
+    titleLabel.setFont (juce::FontOptions (22.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, juce::Colour (0xFF1E293B));
     addAndMakeVisible (titleLabel);
-
-    subtitleLabel.setText ("12-Key Customizable Sampler & Soundset Organ", juce::dontSendNotification);
-    subtitleLabel.setFont (juce::FontOptions (12.0f));
-    subtitleLabel.setColour (juce::Label::textColourId, juce::Colour (0xFF64748B));
-    addAndMakeVisible (subtitleLabel);
 
     // Soundset dropdown and toolbar
     soundsetLabel.setText ("Soundset:", juce::dontSendNotification);
@@ -296,9 +271,17 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
         if (selectedId > 0)
         {
             audioProcessor.loadSoundsetByIndex (selectedId - 1);
-            mascotView.repaint();
+            updateStatus();
+            for (auto& kv : keyViews)
+                kv->repaint();
         }
     };
+
+    // Status pill label in the header
+    statusPillLabel.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+    statusPillLabel.setColour (juce::Label::textColourId, juce::Colour (0xFF475569));
+    statusPillLabel.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (statusPillLabel);
 
     openFolderButton.setButtonText (juce::CharPointer_UTF8 ("\xf0\x9f\x93\x81 Ordner...")); // 📁 Ordner...
     openFolderButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xFFE2E8F0));
@@ -316,7 +299,8 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
     {
         audioProcessor.scanForSoundsets();
         populateSoundsets();
-        mascotView.repaint();
+        for (auto& kv : keyViews)
+            kv->repaint();
     };
     addAndMakeVisible (refreshButton);
 
@@ -327,13 +311,25 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
     // UI timer for 30Hz animation and state synchronization
     startTimerHz (30);
 
-    setSize (840, 520);
+    setSize (840, 480);
 }
 
 ToyOrganAudioProcessorEditor::~ToyOrganAudioProcessorEditor()
 {
     audioProcessor.getKeyboardState().removeListener (this);
     stopTimer();
+}
+
+void ToyOrganAudioProcessorEditor::updateStatus()
+{
+    const auto& soundset = audioProcessor.getCurrentSoundset();
+    juce::String status = juce::String::fromUTF8 ("\xf0\x9f\x90\x94 ") + soundset.name; // 🐔
+    if (soundset.hasSamples)
+        status += " (" + juce::String (soundset.sampleCount) + " Samples)";
+    else
+        status += " (Orgel-Synth Modus)";
+
+    statusPillLabel.setText (status, juce::dontSendNotification);
 }
 
 void ToyOrganAudioProcessorEditor::populateSoundsets()
@@ -346,6 +342,8 @@ void ToyOrganAudioProcessorEditor::populateSoundsets()
 
     int currentIdx = audioProcessor.getCurrentSoundsetIndex();
     soundsetComboBox.setSelectedId (currentIdx + 1, juce::dontSendNotification);
+
+    updateStatus();
 }
 
 void ToyOrganAudioProcessorEditor::paint (juce::Graphics& g)
@@ -364,41 +362,33 @@ void ToyOrganAudioProcessorEditor::paint (juce::Graphics& g)
 
 void ToyOrganAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced (20);
+    auto bounds = getLocalBounds().reduced (18);
 
-    // Top Header: Title & Soundset Selector Bar
+    // Top Header: Title, Status, and Controls
     auto headerArea = bounds.removeFromTop (38);
-    auto titleArea = headerArea.removeFromLeft (320);
-    titleLabel.setBounds (titleArea.removeFromTop (22));
-    subtitleLabel.setBounds (titleArea);
+    titleLabel.setBounds (headerArea.removeFromLeft (250));
 
     // Controls on the right of header
-    refreshButton.setBounds (headerArea.removeFromRight (38));
+    refreshButton.setBounds (headerArea.removeFromRight (36));
     headerArea.removeFromRight (6);
     openFolderButton.setBounds (headerArea.removeFromRight (95));
     headerArea.removeFromRight (8);
-    soundsetComboBox.setBounds (headerArea.removeFromRight (160));
+    soundsetComboBox.setBounds (headerArea.removeFromRight (150));
     headerArea.removeFromRight (8);
     soundsetLabel.setBounds (headerArea.removeFromRight (70));
+    headerArea.removeFromRight (10);
 
-    bounds.removeFromTop (10); // spacing
+    // Status pill in the middle
+    statusPillLabel.setBounds (headerArea);
 
-    // Keyboard Area at the bottom (Height = 220px)
-    auto keyboardBounds = bounds.removeFromBottom (220);
+    bounds.removeFromTop (12); // Spacing between header and keys
 
-    // Mascot Stage in the center area above the keyboard
-    auto mascotArea = bounds.reduced (12.0f, 4.0f);
-    int mascotWidth = juce::jmin (360, mascotArea.getWidth());
-    mascotView.setBounds (mascotArea.getCentreX() - mascotWidth / 2,
-                          mascotArea.getY(),
-                          mascotWidth,
-                          mascotArea.getHeight());
+    // Keyboard Area occupies the remaining space
+    auto keyboardBounds = bounds;
 
     // =========================================================================
-    // PIANO KEYBOARD GEOMETRY: Halbtöne (Black Keys) weiter oben
+    // PIANO KEYBOARD GEOMETRY: 7 White Keys + 5 Black Keys
     // =========================================================================
-    // 7 White keys span the full keyboard width and height:
-    // C(0), D(2), E(4), F(5), G(7), A(9), B(11)
     const int whiteSlotIndices[7] = { 0, 2, 4, 5, 7, 9, 11 };
     float totalW = (float) keyboardBounds.getWidth();
     float whiteW = totalW / 7.0f;
@@ -414,25 +404,18 @@ void ToyOrganAudioProcessorEditor::resized()
                                             juce::roundToInt (keyH));
     }
 
-    // 5 Black keys (Halbtöne) are shorter (~60% height) and placed "weiter oben" (y = keyboardBounds.getY())
-    // Centered at the division lines between white keys:
-    // C# (slot 1)  -> between white 0 (C) and 1 (D) -> crack at 1.0 * whiteW
-    // D# (slot 3)  -> between white 1 (D) and 2 (E) -> crack at 2.0 * whiteW
-    // [E/F crack at 3.0 has NO black key]
-    // F# (slot 6)  -> between white 3 (F) and 4 (G) -> crack at 4.0 * whiteW
-    // G# (slot 8)  -> between white 4 (G) and 5 (A) -> crack at 5.0 * whiteW
-    // A# (slot 10) -> between white 5 (A) and 6 (B) -> crack at 6.0 * whiteW
+    // 5 Black keys are placed "weiter oben" with ~58% of key height
     struct BlackKeyConfig { int slotIndex; float crackPos; };
     const BlackKeyConfig blackConfigs[5] = {
-        { 1, 1.0f },
-        { 3, 2.0f },
-        { 6, 4.0f },
-        { 8, 5.0f },
-        { 10, 6.0f }
+        { 1, 1.0f }, // C# between C (0) and D (1)
+        { 3, 2.0f }, // D# between D (1) and E (2)
+        { 6, 4.0f }, // F# between F (3) and G (4)
+        { 8, 5.0f }, // G# between G (4) and A (5)
+        { 10, 6.0f } // A# between A (5) and B (6)
     };
 
     float blackW = whiteW * 0.60f;
-    float blackH = keyH * 0.60f;
+    float blackH = keyH * 0.58f;
 
     for (const auto& cfg : blackConfigs)
     {
@@ -452,20 +435,14 @@ void ToyOrganAudioProcessorEditor::handleNoteOn (juce::MidiKeyboardState*, int, 
 {
     int index = midiNoteNumber - 60;
     if (index >= 0 && index < 12)
-    {
         keyViews[(size_t) index]->setIsPressed (true);
-        mascotView.repaint();
-    }
 }
 
 void ToyOrganAudioProcessorEditor::handleNoteOff (juce::MidiKeyboardState*, int, int midiNoteNumber, float)
 {
     int index = midiNoteNumber - 60;
     if (index >= 0 && index < 12)
-    {
         keyViews[(size_t) index]->setIsPressed (false);
-        mascotView.repaint();
-    }
 }
 
 void ToyOrganAudioProcessorEditor::timerCallback()
@@ -476,5 +453,4 @@ void ToyOrganAudioProcessorEditor::timerCallback()
         bool isDown = audioProcessor.getKeyboardState().isNoteOnForChannels (0xffff, note);
         keyViews[(size_t) i]->setIsPressed (isDown);
     }
-    mascotView.repaint();
 }
