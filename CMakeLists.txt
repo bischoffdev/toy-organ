@@ -4,6 +4,7 @@ project(LaxersazOrgan VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Fetch JUCE framework automatically
 include(FetchContent)
@@ -27,6 +28,8 @@ juce_add_plugin(ToyOrgan
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon_512.png"
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon_128.png"
 )
 
 # Plugin source files
@@ -55,13 +58,18 @@ target_link_libraries(ToyOrgan PRIVATE
     juce::juce_recommended_warning_flags
 )
 
-# Automatically bundle factory Soundsets into Standalone target
+# Automatically bundle factory Soundsets and icon into Standalone target
 if (TARGET ToyOrgan_Standalone)
     if (APPLE)
         add_custom_command(TARGET ToyOrgan_Standalone POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/Soundsets
             $<TARGET_FILE_DIR:ToyOrgan_Standalone>/../Resources/Soundsets
+        )
+        add_custom_command(TARGET ToyOrgan_Standalone POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/Resources/Icon.icns
+            $<TARGET_FILE_DIR:ToyOrgan_Standalone>/../Resources/Icon.icns
         )
     else()
         add_custom_command(TARGET ToyOrgan_Standalone POST_BUILD

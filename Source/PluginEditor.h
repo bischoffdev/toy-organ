@@ -57,19 +57,17 @@ public:
 private:
     ToyOrganAudioProcessor& audioProcessor;
 
-    // Visual subcomponents (12 keys: C4 to B4)
+    // Visual subcomponents (13 keys: C4 to C5)
     std::vector<std::unique_ptr<ToyOrganKeyView>> keyViews;
 
     // Header controls
     juce::Label titleLabel;
     juce::Label soundsetLabel;
     juce::ComboBox soundsetComboBox;
-    juce::Label statusPillLabel;
     juce::TextButton openFolderButton;
     juce::TextButton refreshButton;
 
     void populateSoundsets();
-    void updateStatus();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganAudioProcessorEditor)
 };

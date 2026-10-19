@@ -6,11 +6,11 @@ A customizable 12-key toy organ audio plugin (VST3, AU, Standalone) built with *
 
 ## Concept
 
-A playful, interactive 12-key sampler organ:
-* **Classic Keyboard Layout:** 7 white keys (Ganztöne) with 5 elevated black keys (Halbtöne weiter oben, wie beim echten Klavier).
-* **Strict 12-Key Range:** Exclusively handles the 12 chromatic keys from C4 to B4 (MIDI notes 60 to 71).
+A playful, interactive 13-key sampler organ:
+* **Toy Organ Keyboard Layout:** Full octave with 8 whole-tone keys and 5 elevated semitone keys (as wide as the white keys for a playful toy aesthetic). All keys share the soundset's custom background color with crisp `#ff7f00` borders and `#0d1926` ink typography.
+* **Full Octave 13-Key Range:** Exclusively handles the 13 chromatic keys from C4 to C5 (MIDI notes 60 to 72).
 * **Mascot Character ON Each Key:** Each key features the mascot character right on the key (like a classic toy duck organ). When a key is played, that key's character instantly springs into its active singing state.
-* **Soundset System:** Each soundset lives in its own folder under `Soundsets/<Name>/` containing both the mascot images (`idle.png` & `active.png`) and audio samples (`01_C.wav` .. `12_B.wav`, or a single sample).
+* **Soundset System:** Each soundset lives in its own folder under `Soundsets/<Name>/` containing the key background color (`color.txt`), mascot images (`idle.png` & `active.png`), and audio samples (`01.wav` .. `13.wav`, or a single sample).
 * **Synthesizer Fallback:** If a soundset has no sample files yet, the built-in organ additive synth seamlessly plays the notes.
 
 ---
@@ -22,12 +22,13 @@ Place your soundsets in the `Soundsets/` directory (you can open it directly in 
 ```text
 Soundsets/
 └── Huhn/
+    ├── color.txt      # Hintergrundfarbe aller Tasten (z.B. #FFEAA7)
     ├── idle.png       # Bild im Ruhezustand
     ├── active.png     # Bild beim Spielen / Gackern!
-    ├── 01_C.wav       # Audio-Sample für Note C
-    ├── 02_CSharp.wav  # Audio-Sample für C# (Halbton)
+    ├── 01.wav         # Audio-Sample für Note C
+    ├── 02.wav         # Audio-Sample für C# (Halbton)
     ├── ...
-    └── 12_B.wav       # Audio-Sample für B (H)
+    └── 13.wav         # Audio-Sample für hohes C (optional)
 ```
 
 > **Tipp:** Wenn du nur ein einzelnes Sample hast (z.B. `gaak.wav`), wird dieses automatisch über alle 12 Tasten chromatisch gepitcht!
@@ -40,12 +41,12 @@ The repository includes a ready-to-run GitHub Actions workflow in [`.github/work
 
 Triggered manually via **Actions > Run workflow** or automatically when publishing a **Release**:
 1. **macOS Runner:** Compiles universal binaries (`arm64` & `x86_64`) for:
-   * **VST3** (`Toy Organ.vst3`)
-   * **Audio Unit / AU** (`Toy Organ.component`)
-   * **Standalone App** (`Toy Organ.app`)
+   * **VST3** (`Laxersaz Organ.vst3`)
+   * **Audio Unit / AU** (`Laxersaz Organ.component`)
+   * **Standalone App** (`Laxersaz Organ.app`)
 2. **Windows Runner:** Compiles x64 binaries using Visual Studio 2022 for:
-   * **VST3** (`Toy Organ.vst3`)
-   * **Standalone Executable** (`Toy Organ.exe`)
+   * **VST3** (`Laxersaz Organ.vst3`)
+   * **Standalone Executable** (`Laxersaz Organ.exe`)
 3. **Artifact Upload:** Packaged ZIP files are uploaded directly to the GitHub Action summary for instant download and testing in your DAW.
 
 ---

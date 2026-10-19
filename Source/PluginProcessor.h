@@ -60,6 +60,7 @@ struct SoundsetInfo
     juce::File folder;
     juce::Image mascotIdle;
     juce::Image mascotActive;
+    juce::Colour keyColor { 0xFFFFEAA7 };
     bool hasSamples = false;
     int sampleCount = 0;
 };
@@ -104,8 +105,8 @@ public:
 
     //==============================================================================
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
-    std::array<OrganKeySlot, 12>& getKeySlots() { return keySlots; }
-    const std::array<OrganKeySlot, 12>& getKeySlots() const { return keySlots; }
+    std::array<OrganKeySlot, 13>& getKeySlots() { return keySlots; }
+    const std::array<OrganKeySlot, 13>& getKeySlots() const { return keySlots; }
     juce::AudioFormatManager& getFormatManager() { return formatManager; }
 
     bool hasSampleForNote (int midiNoteNumber) const;
@@ -126,7 +127,7 @@ private:
     juce::Synthesiser synth;
     juce::AudioFormatManager formatManager;
 
-    std::array<OrganKeySlot, 12> keySlots;
+    std::array<OrganKeySlot, 13> keySlots;
     std::vector<juce::File> detectedSoundsetFolders;
     juce::StringArray soundsetNames;
     int currentSoundsetIndex = 0;

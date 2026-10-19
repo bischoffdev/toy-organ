@@ -9,8 +9,8 @@ ToyOrganSound::ToyOrganSound (ToyOrganAudioProcessor& proc)
 
 bool ToyOrganSound::appliesToNote (int midiNoteNumber)
 {
-    // Strictly ONLY support the 12 organ keys (MIDI 60 to 71 = C4 to B4)
-    if (midiNoteNumber < 60 || midiNoteNumber > 71)
+    // Strictly ONLY support the organ keys (MIDI 60 to 72 = C4 to C5)
+    if (midiNoteNumber < 60 || midiNoteNumber > 72)
         return false;
 
     // Fallback synth only sounds if no custom sample is handling this note
@@ -25,7 +25,7 @@ bool ToyOrganVoice::canPlaySound (juce::SynthesiserSound* sound)
 
 void ToyOrganVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int)
 {
-    if (midiNoteNumber < 60 || midiNoteNumber > 71)
+    if (midiNoteNumber < 60 || midiNoteNumber > 72)
         return;
 
     currentAngle = 0.0;
@@ -98,9 +98,9 @@ ToyOrganAudioProcessor::ToyOrganAudioProcessor()
 
     synth.addSound (new ToyOrganSound (*this));
 
-    // Configure the 12 chromatic keys (C4 to B4: MIDI notes 60 to 71)
-    const char* noteNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    for (int i = 0; i < 12; ++i)
+    // Configure the 13 chromatic keys (C4 to C5: MIDI notes 60 to 72)
+    const char* noteNames[13] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "C" };
+    for (int i = 0; i < 13; ++i)
     {
         keySlots[(size_t) i].noteNumber = 60 + i;
         keySlots[(size_t) i].keyName = noteNames[i];
@@ -251,7 +251,7 @@ bool ToyOrganAudioProcessor::hasSampleForNote (int midiNoteNumber) const
 
 bool ToyOrganAudioProcessor::isAnyKeyPressed() const
 {
-    for (int i = 0; i < 12; ++i)
+    for (int i = 0; i < 13; ++i)
     {
         if (keyboardState.isNoteOnForChannels (0xffff, keySlots[(size_t) i].noteNumber))
             return true;
@@ -261,7 +261,7 @@ bool ToyOrganAudioProcessor::isAnyKeyPressed() const
 
 int ToyOrganAudioProcessor::getCurrentlyPressedNote() const
 {
-    for (int i = 0; i < 12; ++i)
+    for (int i = 0; i < 13; ++i)
     {
         int note = keySlots[(size_t) i].noteNumber;
         if (keyboardState.isNoteOnForChannels (0xffff, note))
@@ -346,7 +346,19 @@ void ToyOrganAudioProcessor::scanForSoundsets()
         {
             auto dest = userMusicDir.getChildFile (fset.getFileName());
             if (! dest.exists())
+            {
                 fset.copyDirectoryTo (dest);
+            }
+            else
+            {
+                auto childFiles = fset.findChildFiles (juce::File::findFiles, false);
+                for (const auto& cf : childFiles)
+                {
+                    auto destFile = dest.getChildFile (cf.getFileName());
+                    if (! destFile.existsAsFile() || cf.getFileName() == "color.txt")
+                        cf.copyFileTo (destFile);
+                }
+            }
         }
     }
 
@@ -381,6 +393,7 @@ void ToyOrganAudioProcessor::scanForSoundsets()
         currentSoundset.sampleCount = 0;
         currentSoundset.mascotIdle = juce::Image();
         currentSoundset.mascotActive = juce::Image();
+        currentSoundset.keyColor = juce::Colour (0xFFFFEAA7);
     }
     else
     {
@@ -397,6 +410,48 @@ void ToyOrganAudioProcessor::loadSoundsetByIndex (int index)
     }
 }
 
+static juce::Colour parseHexOrRgbColour (juce::String str, juce::Colour fallback)
+{
+    str = str.trim();
+    if (str.isEmpty())
+        return fallback;
+
+    // Check tokens for hex color code
+    for (const auto& token : juce::StringArray::fromTokens (str, " \t\r\n=:,;\"'{}", ""))
+    {
+        auto t = token.trim();
+        if (t.startsWithIgnoreCase ("0x"))
+            t = t.substring (2);
+        while (t.startsWithChar ('#'))
+            t = t.substring (1);
+
+        if (t.length() == 6 && t.containsOnly ("0123456789abcdefABCDEF"))
+        {
+            auto rgb = (juce::uint32) t.getHexValue32();
+            return juce::Colour (0xFF000000 | rgb);
+        }
+        if (t.length() == 8 && t.containsOnly ("0123456789abcdefABCDEF"))
+        {
+            return juce::Colour ((juce::uint32) t.getHexValue32());
+        }
+    }
+
+    // Check for rgb(r, g, b) or r, g, b
+    auto digitsAndCommas = str.retainCharacters ("0123456789,");
+    auto commaTokens = juce::StringArray::fromTokens (digitsAndCommas, ",", "");
+    if (commaTokens.size() >= 3)
+    {
+        int r = commaTokens[0].getIntValue();
+        int g = commaTokens[1].getIntValue();
+        int b = commaTokens[2].getIntValue();
+        int a = (commaTokens.size() >= 4) ? commaTokens[3].getIntValue() : 255;
+        if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255)
+            return juce::Colour ((juce::uint8) r, (juce::uint8) g, (juce::uint8) b, (juce::uint8) a);
+    }
+
+    return fallback;
+}
+
 void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
 {
     currentSoundset.name = folder.getFileName();
@@ -405,6 +460,24 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
     currentSoundset.sampleCount = 0;
     currentSoundset.mascotIdle = juce::Image();
     currentSoundset.mascotActive = juce::Image();
+    currentSoundset.keyColor = juce::Colour (0xFFFFEAA7);
+
+    // Look for soundset key background color definition
+    const char* colorFiles[] = { "color.txt", "colors.txt", "background.txt", "key_color.txt", "soundset.json", "README.txt" };
+    for (const char* cf : colorFiles)
+    {
+        auto file = folder.getChildFile (cf);
+        if (file.existsAsFile())
+        {
+            auto content = file.loadFileAsString();
+            juce::Colour parsed = parseHexOrRgbColour (content, juce::Colour());
+            if (! parsed.isTransparent())
+            {
+                currentSoundset.keyColor = parsed;
+                break;
+            }
+        }
+    }
 
     // Reset slot sample assignments
     for (auto& slot : keySlots)
@@ -467,7 +540,7 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
         if (reader != nullptr)
         {
             juce::BigInteger noteBits;
-            noteBits.setRange (60, 12, true);
+            noteBits.setRange (60, 13, true);
             synth.addSound (new juce::SamplerSound (
                 singleFile.getFileNameWithoutExtension(),
                 *reader,
@@ -486,35 +559,40 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
     else if (audioFiles.size() > 1)
     {
         int loadedCount = 0;
-        const char* notePrefixes[12] = {
-            "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"
-        };
-        const char* noteAltPrefixes[12] = {
-            "c", "cs", "d", "ds", "e", "f", "fs", "g", "gs", "a", "as", "h"
-        };
 
-        for (int i = 0; i < 12; ++i)
+        for (int i = 0; i < 13; ++i)
         {
             juce::File matchedFile;
             juce::String indexStr = juce::String (i + 1);
             juce::String indexPadded = (i + 1 < 10 ? "0" : "") + indexStr;
 
+            // 1. Exact match on number (e.g. "01" or "1")
             for (const auto& af : audioFiles)
             {
-                auto base = af.getFileNameWithoutExtension().toLowerCase();
-                if (base.startsWith (indexPadded) || base.startsWith (indexStr + "_") || base.startsWith (indexStr + "-"))
-                {
-                    matchedFile = af;
-                    break;
-                }
-                if (base.contains (notePrefixes[i]) || base.contains (noteAltPrefixes[i]))
+                auto base = af.getFileNameWithoutExtension().toLowerCase().trim();
+                if (base == indexPadded || base == indexStr)
                 {
                     matchedFile = af;
                     break;
                 }
             }
 
-            // Fallback: index-based if matching failed
+            // 2. Prefix match (e.g. "01_" or "01-")
+            if (! matchedFile.existsAsFile())
+            {
+                for (const auto& af : audioFiles)
+                {
+                    auto base = af.getFileNameWithoutExtension().toLowerCase().trim();
+                    if (base.startsWith (indexPadded + "_") || base.startsWith (indexPadded + "-")
+                     || base.startsWith (indexStr + "_")    || base.startsWith (indexStr + "-"))
+                    {
+                        matchedFile = af;
+                        break;
+                    }
+                }
+            }
+
+            // 3. Fallback: index in sorted files
             if (! matchedFile.existsAsFile() && i < audioFiles.size())
                 matchedFile = audioFiles[i];
 
