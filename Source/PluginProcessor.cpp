@@ -192,7 +192,7 @@ void ToyOrganAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // Filter incoming MIDI to strictly ONLY support the 12 keys (MIDI notes 60 to 71 = C4 to B4)
+    // Filter incoming MIDI to strictly ONLY support the 13 keys (MIDI notes 60 to 72 = C4 to C5)
     juce::MidiBuffer filteredMidi;
     for (const auto metadata : midiMessages)
     {
@@ -200,7 +200,7 @@ void ToyOrganAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         if (msg.isNoteOnOrOff())
         {
             int note = msg.getNoteNumber();
-            if (note >= 60 && note < 72)
+            if (note >= 60 && note <= 72)
                 filteredMidi.addEvent (msg, metadata.samplePosition);
         }
         else
@@ -497,35 +497,97 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
             audioFiles.add (f);
     }
 
-    // 2. Identify Idle and Active Images
-    juce::File idleFile;
-    juce::File activeFile;
+    // 2. Identify Idle and Active Image Sequences
+    currentSoundset.idleFrames.clear();
+    currentSoundset.activeFrames.clear();
 
-    for (const auto& img : imageFiles)
+    auto idleDir = folder.getChildFile ("idle");
+    if (! idleDir.isDirectory())
+        idleDir = folder.getChildFile ("idle_frames");
+
+    auto activeDir = folder.getChildFile ("active");
+    if (! activeDir.isDirectory())
+        activeDir = folder.getChildFile ("active_frames");
+
+    juce::Array<juce::File> idleFilesList;
+    juce::Array<juce::File> activeFilesList;
+
+    auto isImg = [](const juce::File& f)
     {
-        auto base = img.getFileNameWithoutExtension().toLowerCase();
-        if (base.contains ("idle") || base.contains ("ruhe") || base.contains ("normal") || base.contains ("closed") || base == "1" || base == "01")
-            idleFile = img;
-        else if (base.contains ("active") || base.contains ("aktiv") || base.contains ("gaak") || base.contains ("sing") || base.contains ("open") || base == "2" || base == "02")
-            activeFile = img;
+        auto ext = f.getFileExtension().toLowerCase();
+        return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp";
+    };
+
+    if (idleDir.isDirectory())
+    {
+        for (const auto& f : idleDir.findChildFiles (juce::File::findFiles, false))
+            if (isImg (f))
+                idleFilesList.add (f);
     }
 
-    if (! idleFile.existsAsFile() && imageFiles.size() > 0)
-        idleFile = imageFiles[0];
-
-    if (! activeFile.existsAsFile())
+    if (activeDir.isDirectory())
     {
-        if (imageFiles.size() > 1 && imageFiles[1] != idleFile)
-            activeFile = imageFiles[1];
-        else if (idleFile.existsAsFile())
-            activeFile = idleFile;
+        for (const auto& f : activeDir.findChildFiles (juce::File::findFiles, false))
+            if (isImg (f))
+                activeFilesList.add (f);
     }
 
-    if (idleFile.existsAsFile())
-        currentSoundset.mascotIdle = juce::ImageFileFormat::loadFrom (idleFile);
+    // If subdirectories were not present, scan the main soundset folder
+    if (idleFilesList.isEmpty() && activeFilesList.isEmpty())
+    {
+        for (const auto& img : imageFiles)
+        {
+            auto base = img.getFileNameWithoutExtension().toLowerCase();
+            if (base.contains ("idle") || base.contains ("ruhe") || base.contains ("normal") || base.contains ("closed"))
+                idleFilesList.add (img);
+            else if (base.contains ("active") || base.contains ("aktiv") || base.contains ("gaak") || base.contains ("sing") || base.contains ("open"))
+                activeFilesList.add (img);
+        }
+    }
 
-    if (activeFile.existsAsFile())
-        currentSoundset.mascotActive = juce::ImageFileFormat::loadFrom (activeFile);
+    // Fallbacks if one or both categories were not explicitly identified
+    if (idleFilesList.isEmpty() && imageFiles.size() > 0)
+        idleFilesList.add (imageFiles[0]);
+
+    if (activeFilesList.isEmpty())
+    {
+        if (imageFiles.size() > 1 && imageFiles[1] != idleFilesList[0])
+            activeFilesList.add (imageFiles[1]);
+        else if (idleFilesList.size() > 0)
+            activeFilesList.add (idleFilesList[0]);
+    }
+
+    // Sort files naturally by filename (01, 02, 03... or a, b, c...)
+    auto fileSorter = [](const juce::File& a, const juce::File& b)
+    {
+        return a.getFileName().toLowerCase() < b.getFileName().toLowerCase();
+    };
+    std::sort (idleFilesList.begin(), idleFilesList.end(), fileSorter);
+    std::sort (activeFilesList.begin(), activeFilesList.end(), fileSorter);
+
+    for (const auto& f : idleFilesList)
+    {
+        auto img = juce::ImageFileFormat::loadFrom (f);
+        if (img.isValid())
+            currentSoundset.idleFrames.push_back (img);
+    }
+
+    for (const auto& f : activeFilesList)
+    {
+        auto img = juce::ImageFileFormat::loadFrom (f);
+        if (img.isValid())
+            currentSoundset.activeFrames.push_back (img);
+    }
+
+    if (! currentSoundset.idleFrames.empty())
+        currentSoundset.mascotIdle = currentSoundset.idleFrames[0];
+    else
+        currentSoundset.mascotIdle = juce::Image();
+
+    if (! currentSoundset.activeFrames.empty())
+        currentSoundset.mascotActive = currentSoundset.activeFrames[0];
+    else
+        currentSoundset.mascotActive = juce::Image();
 
     // 3. Clear existing sounds and restore ToyOrganSound
     synth.clearSounds();

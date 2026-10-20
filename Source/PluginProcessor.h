@@ -58,11 +58,27 @@ struct SoundsetInfo
 {
     juce::String name;
     juce::File folder;
+    std::vector<juce::Image> idleFrames;
+    std::vector<juce::Image> activeFrames;
     juce::Image mascotIdle;
     juce::Image mascotActive;
     juce::Colour keyColor { 0xFFFFEAA7 };
     bool hasSamples = false;
     int sampleCount = 0;
+
+    juce::Image getIdleFrame (int frameIndex) const
+    {
+        if (idleFrames.empty())
+            return mascotIdle.isValid() ? mascotIdle : mascotActive;
+        return idleFrames[(size_t) (std::abs (frameIndex) % (int) idleFrames.size())];
+    }
+
+    juce::Image getActiveFrame (int frameIndex) const
+    {
+        if (activeFrames.empty())
+            return mascotActive.isValid() ? mascotActive : mascotIdle;
+        return activeFrames[(size_t) (std::abs (frameIndex) % (int) activeFrames.size())];
+    }
 };
 
 //==============================================================================

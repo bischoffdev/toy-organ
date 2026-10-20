@@ -48,7 +48,13 @@ target_compile_definitions(ToyOrgan PRIVATE
 )
 
 # Link required JUCE modules (including audio_formats for WAV/AIFF sample loading)
+juce_add_binary_data(ToyOrganResources
+    SOURCES
+        Resources/icon_128.png
+)
+
 target_link_libraries(ToyOrgan PRIVATE
+    ToyOrganResources
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_audio_formats
