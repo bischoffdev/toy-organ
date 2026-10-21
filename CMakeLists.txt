@@ -21,7 +21,8 @@ juce_add_plugin(ToyOrgan
     COMPANY_NAME "BischoffDev"
     PLUGIN_MANUFACTURER_CODE Bsch
     PLUGIN_CODE Lxso
-    FORMATS VST3 AU Standalone
+    FORMATS VST3 AU Standalone LV2
+    LV2URI "https://bischoff.dev/plugins/ToyOrgan"
     PRODUCT_NAME "Laxersaz Organ"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
@@ -85,4 +86,20 @@ if (TARGET ToyOrgan_Standalone)
         )
     endif()
 endif()
+
+# Custom target for local developers: cmake --build build --target install_user
+if (WIN32)
+    add_custom_target(install_user
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/install.bat"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Installing Laxersaz Organ plugins and soundsets..."
+    )
+else()
+    add_custom_target(install_user
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/install.sh"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Installing Laxersaz Organ plugins and soundsets..."
+    )
+endif()
+
 

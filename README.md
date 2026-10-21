@@ -1,6 +1,6 @@
 # Laxersaz Organ 🎹
 
-A customizable 12-key toy organ audio plugin (VST3, AU, Standalone) built with **JUCE 8** and **CMake**, designed to work cross-platform on **macOS** and **Windows**.
+A customizable 12-key toy organ audio plugin (VST3, AU, LV2, Standalone) built with **JUCE 8** and **CMake**, designed to work cross-platform on **macOS**, **Windows**, and **Linux**.
 
 ---
 
@@ -43,11 +43,37 @@ Triggered manually via **Actions > Run workflow** or automatically when publishi
 1. **macOS Runner:** Compiles universal binaries (`arm64` & `x86_64`) for:
    * **VST3** (`Laxersaz Organ.vst3`)
    * **Audio Unit / AU** (`Laxersaz Organ.component`)
+   * **LV2** (`Laxersaz Organ.lv2`)
    * **Standalone App** (`Laxersaz Organ.app`)
 2. **Windows Runner:** Compiles x64 binaries using Visual Studio 2022 for:
    * **VST3** (`Laxersaz Organ.vst3`)
+   * **LV2** (`Laxersaz Organ.lv2`)
    * **Standalone Executable** (`Laxersaz Organ.exe`)
-3. **Artifact Upload:** Packaged ZIP files are uploaded directly to the GitHub Action summary for instant download and testing in your DAW.
+3. **Linux Runner (Ubuntu 22.04):** Compiles x64 binaries for:
+   * **VST3** (`Laxersaz Organ.vst3`)
+   * **LV2** (`Laxersaz Organ.lv2`)
+   * **Standalone Executable** (`Laxersaz Organ`)
+4. **Artifact Upload:** Packaged ZIP files are uploaded directly to the GitHub Action summary for instant download and testing in your DAW. Each archive contains `install.sh` (Mac/Linux) or `install.bat` (Windows).
+
+---
+
+## Installation & Updating
+
+Each release ZIP includes a one-click installer script:
+
+* **macOS & Linux (`./install.sh`):**
+  Installs or updates plugins into user directories (`~/Library/Audio/Plug-Ins/...` on macOS, `~/.vst3` & `~/.lv2` on Linux) and copies factory soundsets to `~/Music/LaxersazOrgan/Soundsets/`.
+* **Windows (`install.bat`):**
+  Double-click to install or update VST3, LV2, and factory soundsets into system & user directories.
+* **Local CMake Developers:**
+  Run `cmake --build build --target install_user` to compile and install in one step.
+
+### How Reinstalling & Updating Works
+* **Plugin Binaries:** Overwrites the previous plugin version cleanly with the new binary.
+* **Factory Soundsets:** Updates factory soundset folders (`Huhn`, `Bananabot`, etc.) in-place with new assets.
+* **Preserving Custom Presets:** Any custom soundset folders you added are **never deleted or overwritten**.
+* **macOS Audio Unit Cache:** Automatically resets `AudioComponentRegistrar` so Logic Pro and other DAWs recognize the update immediately without a system restart.
+* **Uninstallation:** Run `./install.sh --uninstall` (or `install.bat --uninstall`) to remove the plugin files while leaving your soundsets intact.
 
 ---
 
@@ -61,11 +87,11 @@ cd /Users/benjaminbischoff/Development/toy-organ
 # Initialize Git repository
 git init -b main
 git add .
-git commit -m "Add piano layout with elevated accidentals and soundset loader"
+git commit -m "Add piano layout with elevated accidentals, Linux support, and soundset loader"
 git push origin main
 ```
 
-Once pushed, navigate to the **Actions** tab on your GitHub repository to watch the Mac and Windows builds run!
+Once pushed, navigate to the **Actions** tab on your GitHub repository to watch the Mac, Windows, and Linux builds run!
 
 ---
 
@@ -85,6 +111,19 @@ Requirements: Visual Studio 2022 Community (with "Desktop development with C++")
 ```cmd
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
+```
+
+### Linux (Ubuntu / Debian)
+Requirements: Build essentials, CMake, and development libraries for ALSA, FreeType, and X11:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake git \
+    libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
+    libx11-dev libxcomposite-dev libxcursor-dev libxinerama-dev libxrandr-dev libgl1-mesa-dev
+
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j$(nproc)
 ```
 
 The compiled plugins will be located under `build/ToyOrgan_artefacts/Release/`.

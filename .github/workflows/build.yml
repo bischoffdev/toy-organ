@@ -17,6 +17,8 @@ jobs:
             platform_name: macOS
           - os: windows-2022
             platform_name: Windows
+          - os: ubuntu-22.04
+            platform_name: Linux
 
     steps:
       - name: Checkout repository
@@ -31,6 +33,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-juce-fetchcontent-
 
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libjack-jackd2-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libx11-dev \
+            libxcomposite-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libgl1-mesa-dev
+
       - name: Configure CMake (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -43,6 +61,11 @@ jobs:
         run: |
           cmake -B build -A x64
 
+      - name: Configure CMake (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
       - name: Build Plugin (Release)
         run: |
           cmake --build build --config Release --parallel
@@ -52,11 +75,13 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir -p artifacts
-          # Copy VST3, AU, and Standalone apps if present
           find build/ToyOrgan_artefacts -name "*.vst3" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           find build/ToyOrgan_artefacts -name "*.component" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           find build/ToyOrgan_artefacts -name "*.app" -exec cp -R {} artifacts/ \; 2>/dev/null || true
+          find build/ToyOrgan_artefacts -name "*.lv2" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           cp -R Soundsets artifacts/ 2>/dev/null || true
+          cp install.sh artifacts/ 2>/dev/null || true
+          chmod +x artifacts/install.sh 2>/dev/null || true
 
       - name: Stage Artifacts (Windows)
         if: runner.os == 'Windows'
@@ -65,7 +90,20 @@ jobs:
           mkdir -p artifacts
           find build/ToyOrgan_artefacts -name "*.vst3" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           find build/ToyOrgan_artefacts -name "*.exe" -exec cp -R {} artifacts/ \; 2>/dev/null || true
+          find build/ToyOrgan_artefacts -name "*.lv2" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           cp -R Soundsets artifacts/ 2>/dev/null || true
+          cp install.bat artifacts/ 2>/dev/null || true
+
+      - name: Stage Artifacts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p artifacts
+          find build/ToyOrgan_artefacts -name "*.vst3" -exec cp -R {} artifacts/ \; 2>/dev/null || true
+          find build/ToyOrgan_artefacts -name "*.lv2" -exec cp -R {} artifacts/ \; 2>/dev/null || true
+          find build/ToyOrgan_artefacts -path "*/Standalone/*" -type f -executable -exec cp {} artifacts/ \; 2>/dev/null || true
+          cp -R Soundsets artifacts/ 2>/dev/null || true
+          cp install.sh artifacts/ 2>/dev/null || true
+          chmod +x artifacts/install.sh 2>/dev/null || true
 
       - name: Upload Plugin Artifacts
         uses: actions/upload-artifact@v4
