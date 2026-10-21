@@ -22,11 +22,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Cache JUCE downloaded via FetchContent to dramatically speed up subsequent builds
       - name: Cache FetchContent
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/_deps
           key: ${{ runner.os }}-juce-fetchcontent-${{ hashFiles('CMakeLists.txt') }}
@@ -106,7 +106,7 @@ jobs:
           chmod +x artifacts/install.sh 2>/dev/null || true
 
       - name: Upload Plugin Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: LaxersazOrgan-${{ matrix.platform_name }}
           path: artifacts/
