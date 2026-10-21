@@ -102,4 +102,16 @@ else()
     )
 endif()
 
+# Utility executable to generate clean screenshot of the UI
+add_executable(render_screenshot Source/RenderScreenshot.cpp)
+target_link_libraries(render_screenshot PRIVATE 
+    ToyOrgan
+    juce::juce_gui_extra
+    juce::juce_gui_basics
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_audio_formats
+)
+
+
 
