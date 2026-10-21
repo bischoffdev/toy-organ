@@ -23,7 +23,7 @@ bool ToyOrganVoice::canPlaySound (juce::SynthesiserSound* sound)
     return dynamic_cast<ToyOrganSound*> (sound) != nullptr;
 }
 
-void ToyOrganVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int)
+void ToyOrganVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int currentPitchWheelPosition)
 {
     if (midiNoteNumber < 60 || midiNoteNumber > 72)
         return;
@@ -31,10 +31,14 @@ void ToyOrganVoice::startNote (int midiNoteNumber, float velocity, juce::Synthes
     currentAngle = 0.0;
     level = velocity * 0.25f;
     tailOff = 0.0f;
+    lfoPhase = 0.0;
 
     auto cyclesPerSecond = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
     auto cyclesPerSample = cyclesPerSecond / getSampleRate();
-    angleDelta = cyclesPerSample * 2.0 * juce::MathConstants<double>::pi;
+    baseAngleDelta = cyclesPerSample * 2.0 * juce::MathConstants<double>::pi;
+    angleDelta = baseAngleDelta;
+
+    pitchWheelMoved (currentPitchWheelPosition);
 }
 
 void ToyOrganVoice::stopNote (float, bool allowTailOff)
@@ -47,17 +51,44 @@ void ToyOrganVoice::stopNote (float, bool allowTailOff)
     else
     {
         clearCurrentNote();
+        baseAngleDelta = 0.0;
         angleDelta = 0.0;
     }
 }
 
+void ToyOrganVoice::pitchWheelMoved (int newValue)
+{
+    pitchBendRatio = std::pow (2.0, (double) (newValue - 8192) / (8192.0 * 6.0));
+}
+
+void ToyOrganVoice::controllerMoved (int controllerNumber, int newValue)
+{
+    if (controllerNumber == 1) // Modulation Wheel
+        vibratoDepth = (float) newValue / 127.0f;
+}
+
 void ToyOrganVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples)
 {
-    if (angleDelta == 0.0)
+    if (baseAngleDelta == 0.0)
         return;
+
+    const double lfoDelta = (2.0 * juce::MathConstants<double>::pi * 5.5) / getSampleRate();
+    const double maxVibratoSemitones = 0.6;
 
     while (--numSamples >= 0)
     {
+        double vibratoRatio = 1.0;
+        if (vibratoDepth > 0.001f)
+        {
+            double semitones = std::sin (lfoPhase) * (vibratoDepth * maxVibratoSemitones);
+            vibratoRatio = std::pow (2.0, semitones / 12.0);
+            lfoPhase += lfoDelta;
+            if (lfoPhase >= 2.0 * juce::MathConstants<double>::pi)
+                lfoPhase -= 2.0 * juce::MathConstants<double>::pi;
+        }
+
+        angleDelta = baseAngleDelta * pitchBendRatio * vibratoRatio;
+
         // A warm additive organ wave (fundamental + 2nd harmonic + 3rd harmonic)
         auto sample = (float) (std::sin (currentAngle) 
                              + 0.5 * std::sin (2.0 * currentAngle) 
@@ -71,6 +102,7 @@ void ToyOrganVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int
             if (tailOff <= 0.005f)
             {
                 clearCurrentNote();
+                baseAngleDelta = 0.0;
                 angleDelta = 0.0;
                 break;
             }
@@ -85,14 +117,169 @@ void ToyOrganVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int
 }
 
 //==============================================================================
+ToyOrganSampledSound::ToyOrganSampledSound (const juce::String& soundName,
+                                            juce::AudioFormatReader& reader,
+                                            const juce::BigInteger& notes,
+                                            int midiRootNote,
+                                            double attackTimeSecs,
+                                            double releaseTimeSecs,
+                                            double maxSampleLengthSeconds)
+    : name (soundName), midiNotes (notes), rootNote (midiRootNote), sourceSampleRate (reader.sampleRate)
+{
+    if (sourceSampleRate > 0.0)
+    {
+        length = juce::jmin ((int) reader.lengthInSamples,
+                             (int) (maxSampleLengthSeconds * sourceSampleRate));
+        if (length > 0)
+        {
+            data.setSize ((int) reader.numChannels, length + 4);
+            data.clear();
+            reader.read (&data, 0, length, 0, true, true);
+        }
+    }
+    params.attack = (float) attackTimeSecs;
+    params.decay = 0.1f;
+    params.sustain = 1.0f;
+    params.release = (float) releaseTimeSecs;
+}
+
+//==============================================================================
+bool ToyOrganSampledVoice::canPlaySound (juce::SynthesiserSound* s)
+{
+    return dynamic_cast<ToyOrganSampledSound*> (s) != nullptr;
+}
+
+void ToyOrganSampledVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound* s, int currentPitchWheelPosition)
+{
+    if (auto* sound = dynamic_cast<ToyOrganSampledSound*> (s))
+    {
+        playingSound = sound;
+        pitchRatio = std::pow (2.0, (midiNoteNumber - sound->getRootNote()) / 12.0)
+                     * sound->getSourceSampleRate() / getSampleRate();
+        sourceSamplePosition = 0.0;
+        gain = velocity * 0.45f;
+
+        adsr.setSampleRate (getSampleRate());
+        adsr.setParameters (sound->getParams());
+        adsr.noteOn();
+
+        pitchWheelMoved (currentPitchWheelPosition);
+        lfoPhase = 0.0;
+    }
+}
+
+void ToyOrganSampledVoice::stopNote (float, bool allowTailOff)
+{
+    if (allowTailOff)
+    {
+        adsr.noteOff();
+    }
+    else
+    {
+        clearCurrentNote();
+        adsr.reset();
+        playingSound = nullptr;
+    }
+}
+
+void ToyOrganSampledVoice::pitchWheelMoved (int newValue)
+{
+    pitchBendRatio = std::pow (2.0, (double) (newValue - 8192) / (8192.0 * 6.0));
+}
+
+void ToyOrganSampledVoice::controllerMoved (int controllerNumber, int newValue)
+{
+    if (controllerNumber == 1) // Modulation Wheel
+        vibratoDepth = (float) newValue / 127.0f;
+}
+
+void ToyOrganSampledVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples)
+{
+    if (playingSound == nullptr || playingSound->getLength() == 0)
+        return;
+
+    auto& soundData = playingSound->getData();
+    const float* inL = soundData.getReadPointer (0);
+    const float* inR = soundData.getNumChannels() > 1 ? soundData.getReadPointer (1) : nullptr;
+    int soundLength = playingSound->getLength();
+
+    float* outL = outputBuffer.getWritePointer (0, startSample);
+    float* outR = outputBuffer.getNumChannels() > 1 ? outputBuffer.getWritePointer (1, startSample) : nullptr;
+
+    const double lfoDelta = (2.0 * juce::MathConstants<double>::pi * 5.5) / getSampleRate();
+    const double maxVibratoSemitones = 0.6;
+
+    while (--numSamples >= 0)
+    {
+        auto pos = (int) sourceSamplePosition;
+        if (pos >= soundLength - 1)
+        {
+            clearCurrentNote();
+            playingSound = nullptr;
+            break;
+        }
+
+        auto alpha = (float) (sourceSamplePosition - pos);
+        auto invAlpha = 1.0f - alpha;
+
+        float l = (inL[pos] * invAlpha + inL[pos + 1] * alpha);
+        float r = (inR != nullptr) ? (inR[pos] * invAlpha + inR[pos + 1] * alpha) : l;
+
+        auto env = adsr.getNextSample();
+        if (! adsr.isActive())
+        {
+            clearCurrentNote();
+            playingSound = nullptr;
+            break;
+        }
+
+        l *= gain * env;
+        r *= gain * env;
+
+        if (outR != nullptr)
+        {
+            *outL++ += l;
+            *outR++ += r;
+        }
+        else
+        {
+            *outL++ += (l + r) * 0.5f;
+        }
+
+        double vibratoRatio = 1.0;
+        if (vibratoDepth > 0.001f)
+        {
+            double semitones = std::sin (lfoPhase) * (vibratoDepth * maxVibratoSemitones);
+            vibratoRatio = std::pow (2.0, semitones / 12.0);
+            lfoPhase += lfoDelta;
+            if (lfoPhase >= 2.0 * juce::MathConstants<double>::pi)
+                lfoPhase -= 2.0 * juce::MathConstants<double>::pi;
+        }
+
+        sourceSamplePosition += pitchRatio * pitchBendRatio * vibratoRatio;
+    }
+}
+
+//==============================================================================
 ToyOrganAudioProcessor::ToyOrganAudioProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
     formatManager.registerBasicFormats();
 
+    // Register Master Volume parameter (DAW automatable, 0% to 100%, default 85%)
+    addParameter (masterVolumeParam = new juce::AudioParameterFloat (
+        juce::ParameterID ("volume", 1),
+        "Volume",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f),
+        0.85f,
+        juce::AudioParameterFloatAttributes().withLabel ("%").withStringFromValueFunction (
+            [](float val, int) { return juce::String (juce::roundToInt (val * 100.0f)) + "%"; }
+        )
+    ));
+
     // 8 sampler voices + 8 synth fallback voices for polyphony
     for (int i = 0; i < 8; ++i)
-        synth.addVoice (new juce::SamplerVoice());
+        synth.addVoice (new ToyOrganSampledVoice());
     for (int i = 0; i < 8; ++i)
         synth.addVoice (new ToyOrganVoice());
 
@@ -165,6 +352,8 @@ void ToyOrganAudioProcessor::changeProgramName (int, const juce::String&)
 void ToyOrganAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     synth.setCurrentPlaybackSampleRate (sampleRate);
+    smoothVolume.reset (sampleRate, 0.02); // 20ms smoothing
+    smoothVolume.setCurrentAndTargetValue (masterVolumeParam->get());
     keyboardState.reset();
     juce::ignoreUnused (samplesPerBlock);
 }
@@ -192,7 +381,8 @@ void ToyOrganAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // Filter incoming MIDI to strictly ONLY support the 13 keys (MIDI notes 60 to 72 = C4 to C5)
+    // Filter incoming MIDI to strictly ONLY support the 13 keys (MIDI notes 60 to 72 = C4 to C5),
+    // while preserving all pitch bend and CC controller messages!
     juce::MidiBuffer filteredMidi;
     for (const auto metadata : midiMessages)
     {
@@ -214,8 +404,12 @@ void ToyOrganAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // Connect GUI / on-screen key presses to the audio MIDI stream
     keyboardState.processNextMidiBuffer (midiMessages, 0, buffer.getNumSamples(), true);
 
-    // Render sound
+    // Render sound (synth voices handle notes, pitch bend, and mod wheel)
     synth.renderNextBlock (buffer, midiMessages, 0, buffer.getNumSamples());
+
+    // Apply smooth master volume
+    smoothVolume.setTargetValue (masterVolumeParam->get());
+    smoothVolume.applyGain (buffer, buffer.getNumSamples());
 }
 
 bool ToyOrganAudioProcessor::hasEditor() const
@@ -228,19 +422,56 @@ juce::AudioProcessorEditor* ToyOrganAudioProcessor::createEditor()
     return new ToyOrganAudioProcessorEditor (*this);
 }
 
-void ToyOrganAudioProcessor::getStateInformation (juce::MemoryBlock&)
+void ToyOrganAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    juce::XmlElement xml ("LaxersazOrganState");
+    xml.setAttribute ("version", 1);
+    xml.setAttribute ("soundsetName", currentSoundset.name);
+    xml.setAttribute ("masterVolume", (double) masterVolumeParam->get());
+    xml.setAttribute ("keyboardLayout", currentKeyboardLayout);
+    xml.setAttribute ("editorWidth", lastEditorWidth);
+    xml.setAttribute ("editorHeight", lastEditorHeight);
+
+    copyXmlToBinary (xml, destData);
 }
 
-void ToyOrganAudioProcessor::setStateInformation (const void*, int)
+void ToyOrganAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    auto xml = getXmlFromBinary (data, sizeInBytes);
+    if (xml != nullptr && xml->hasTagName ("LaxersazOrganState"))
+    {
+        if (xml->hasAttribute ("masterVolume"))
+            *masterVolumeParam = (float) xml->getDoubleAttribute ("masterVolume", 0.85);
+
+        if (xml->hasAttribute ("keyboardLayout"))
+            currentKeyboardLayout = xml->getIntAttribute ("keyboardLayout", 0);
+
+        if (xml->hasAttribute ("editorWidth"))
+            lastEditorWidth = xml->getIntAttribute ("editorWidth", 880);
+
+        if (xml->hasAttribute ("editorHeight"))
+            lastEditorHeight = xml->getIntAttribute ("editorHeight", 420);
+
+        auto savedSoundsetName = xml->getStringAttribute ("soundsetName");
+        if (savedSoundsetName.isNotEmpty())
+        {
+            for (int i = 0; i < (int) detectedSoundsetFolders.size(); ++i)
+            {
+                if (detectedSoundsetFolders[(size_t) i].getFileName() == savedSoundsetName)
+                {
+                    loadSoundsetByIndex (i);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 bool ToyOrganAudioProcessor::hasSampleForNote (int midiNoteNumber) const
 {
     for (int i = 0; i < synth.getNumSounds(); ++i)
     {
-        if (auto* samplerSound = dynamic_cast<juce::SamplerSound*> (synth.getSound (i).get()))
+        if (auto* samplerSound = dynamic_cast<ToyOrganSampledSound*> (synth.getSound (i).get()))
         {
             if (samplerSound->appliesToNote (midiNoteNumber))
                 return true;
@@ -603,7 +834,7 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
         {
             juce::BigInteger noteBits;
             noteBits.setRange (60, 13, true);
-            synth.addSound (new juce::SamplerSound (
+            synth.addSound (new ToyOrganSampledSound (
                 singleFile.getFileNameWithoutExtension(),
                 *reader,
                 noteBits,
@@ -665,7 +896,7 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
                 {
                     juce::BigInteger noteBits;
                     noteBits.setBit (60 + i);
-                    synth.addSound (new juce::SamplerSound (
+                    synth.addSound (new ToyOrganSampledSound (
                         matchedFile.getFileNameWithoutExtension(),
                         *reader,
                         noteBits,
@@ -686,6 +917,34 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
             currentSoundset.sampleCount = loadedCount;
         }
     }
+}
+
+juce::String ToyOrganAudioProcessor::getShortcutForSlot (int slotIndex) const
+{
+    if (slotIndex < 0 || slotIndex >= 13)
+        return {};
+
+    // 0 = QWERTY
+    static const char* qwertyShortcuts[13] = {
+        "A", "W", "S", "E", "D", "F", "T", "G", "Y", "H", "U", "J", "K"
+    };
+
+    // 1 = QWERTZ (German / Austrian / Swiss: Z replaces Y)
+    static const char* qwertzShortcuts[13] = {
+        "A", "W", "S", "E", "D", "F", "T", "G", "Z", "H", "U", "J", "K"
+    };
+
+    // 2 = AZERTY (French / Belgian: Q replaces A, Z replaces W)
+    static const char* azertyShortcuts[13] = {
+        "Q", "Z", "S", "E", "D", "F", "T", "G", "Y", "H", "U", "J", "K"
+    };
+
+    if (currentKeyboardLayout == 1)
+        return qwertzShortcuts[slotIndex];
+    if (currentKeyboardLayout == 2)
+        return azertyShortcuts[slotIndex];
+
+    return qwertyShortcuts[slotIndex];
 }
 
 //==============================================================================

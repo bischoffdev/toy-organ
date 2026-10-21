@@ -132,10 +132,15 @@ The compiled plugins will be located under `build/ToyOrgan_artefacts/Release/`.
 
 ## Roadmap
 
-- [x] Cross-platform CMake & GitHub Actions CI/CD setup
-- [x] 12-key visual layout and interactive mouse/MIDI triggering
+- [x] Cross-platform CMake & GitHub Actions CI/CD setup (macOS, Windows, Linux)
+- [x] 13-key visual layout and interactive mouse/MIDI triggering
 - [x] Piano keyboard geometry with elevated semitones (Halbtöne weiter oben)
 - [x] Audio synthesis engine & polyphonic sample player with auto-fallback
 - [x] Sound Set Loader (supporting custom folders with samples & idle/active images)
 - [x] Preset switching dropdown & quick folder reveal button
+- [x] Full DAW project state saving & restoration
+- [x] Master volume parameter (DAW automatable with smooth ramping)
+- [x] Musical typing (computer keyboard playing with QWERTY, QWERTZ, and AZERTY layout support)
+- [x] Resizable UI with aspect ratio preservation and size persistence
+- [x] MIDI Pitch Bend & Modulation Wheel (wobbly toy organ vibrato)
 

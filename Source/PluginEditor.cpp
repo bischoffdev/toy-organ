@@ -20,6 +20,48 @@ ToyOrganLookAndFeel::ToyOrganLookAndFeel()
     setColour (juce::TextButton::buttonColourId, juce::Colour (0xFF242A36));
     setColour (juce::TextButton::textColourOffId, juce::Colour (0xFFF8FAFC));
     setColour (juce::TextButton::textColourOnId, juce::Colour (0xFFFFFFFF));
+
+    setColour (juce::Slider::textBoxTextColourId, juce::Colour (0xFFF8FAFC));
+    setColour (juce::Slider::textBoxBackgroundColourId, juce::Colour (0x00000000));
+    setColour (juce::Slider::textBoxOutlineColourId, juce::Colour (0x00000000));
+}
+
+void ToyOrganLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                                            float sliderPos, float minSliderPos, float maxSliderPos,
+                                            const juce::Slider::SliderStyle style, juce::Slider& slider)
+{
+    juce::ignoreUnused (minSliderPos, maxSliderPos, style, slider);
+    float trackHeight = 6.0f;
+    float trackY = (float) y + ((float) height - trackHeight) * 0.5f;
+    auto trackBounds = juce::Rectangle<float> ((float) x, trackY, (float) width, trackHeight);
+
+    // Dark track background
+    g.setColour (juce::Colour (0xFF1E232B));
+    g.fillRoundedRectangle (trackBounds, trackHeight * 0.5f);
+
+    // Active fill
+    float fillWidth = juce::jlimit (0.0f, (float) width, sliderPos - (float) x);
+    if (fillWidth > 0.0f)
+    {
+        g.setColour (juce::Colour (0xFFFF7F00));
+        g.fillRoundedRectangle (trackBounds.withWidth (fillWidth), trackHeight * 0.5f);
+    }
+
+    // Outer border
+    g.setColour (juce::Colour (0xFF3F495A));
+    g.drawRoundedRectangle (trackBounds, trackHeight * 0.5f, 1.0f);
+
+    // Thumb handle
+    float thumbRadius = 7.0f;
+    auto thumbBounds = juce::Rectangle<float> (sliderPos - thumbRadius, (float) y + ((float) height * 0.5f) - thumbRadius, thumbRadius * 2.0f, thumbRadius * 2.0f);
+    g.setColour (juce::Colour (0x20000000));
+    g.fillEllipse (thumbBounds.translated (0.0f, 1.5f));
+
+    g.setColour (juce::Colours::white);
+    g.fillEllipse (thumbBounds);
+
+    g.setColour (juce::Colour (0xFFFF7F00));
+    g.drawEllipse (thumbBounds, 2.0f);
 }
 
 void ToyOrganLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, bool isButtonDown,
@@ -280,8 +322,13 @@ void ToyOrganKeyView::paint (juce::Graphics& g)
     g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x60FFFFFF));
     g.drawRoundedRectangle (imgRect, 14.0f, isPressed ? 2.5f : 1.5f);
 
-    // Note badge (above for back row, below for front row)
-    float badgeW = isAccidental ? 30.0f : 34.0f;
+    // Note badge with keyboard shortcut hint (e.g. "C [A]", "C# [W]")
+    auto shortcut = processor.getShortcutForSlot (slotIndex);
+    juce::String badgeText = slot.keyName;
+    if (shortcut.isNotEmpty())
+        badgeText << " [" << shortcut << "]";
+
+    float badgeW = isAccidental ? 42.0f : 46.0f;
     float badgeH = 18.0f;
     auto badgeRect = juce::Rectangle<float> (labelRect.getCentreX() - badgeW * 0.5f,
                                              labelRect.getCentreY() - badgeH * 0.5f,
@@ -293,9 +340,9 @@ void ToyOrganKeyView::paint (juce::Graphics& g)
     g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x20000000));
     g.drawRoundedRectangle (badgeRect, 5.0f, 1.0f);
 
-    g.setFont (juce::FontOptions (isAccidental ? 11.5f : 12.5f, juce::Font::bold));
+    g.setFont (juce::FontOptions (isAccidental ? 10.5f : 11.5f, juce::Font::bold));
     g.setColour (isPressed ? juce::Colours::white : juce::Colour (0xFF0D1926));
-    g.drawText (slot.keyName, badgeRect, juce::Justification::centred, false);
+    g.drawText (badgeText, badgeRect, juce::Justification::centred, false);
 }
 
 //==============================================================================
@@ -332,6 +379,36 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
     titleLabel.setFont (juce::FontOptions (18.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, juce::Colour (0xFFFFFFFF));
     addAndMakeVisible (titleLabel);
+
+    // Master volume label and slider
+    volumeLabel.setText ("Vol:", juce::dontSendNotification);
+    volumeLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    volumeLabel.setColour (juce::Label::textColourId, juce::Colour (0xFFE2E8F0));
+    volumeLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (volumeLabel);
+
+    volumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    volumeSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 42, 20);
+    volumeSlider.setRange (0.0, 1.0, 0.01);
+    volumeSlider.setValue (audioProcessor.getMasterVolumeParam()->get(), juce::dontSendNotification);
+    volumeSlider.onValueChange = [this]()
+    {
+        *audioProcessor.getMasterVolumeParam() = (float) volumeSlider.getValue();
+    };
+    addAndMakeVisible (volumeSlider);
+
+    // Keyboard layout selector for musical typing
+    layoutComboBox.addItem (juce::CharPointer_UTF8 ("\xe2\x8c\xa8 QWERTY"), 1); // ⌨ QWERTY
+    layoutComboBox.addItem (juce::CharPointer_UTF8 ("\xe2\x8c\xa8 QWERTZ"), 2); // ⌨ QWERTZ
+    layoutComboBox.addItem (juce::CharPointer_UTF8 ("\xe2\x8c\xa8 AZERTY"), 3); // ⌨ AZERTY
+    layoutComboBox.setSelectedId (audioProcessor.getKeyboardLayout() + 1, juce::dontSendNotification);
+    layoutComboBox.onChange = [this]()
+    {
+        audioProcessor.setKeyboardLayout (layoutComboBox.getSelectedId() - 1);
+        for (auto& kv : keyViews)
+            kv->repaint();
+    };
+    addAndMakeVisible (layoutComboBox);
 
     // Soundset dropdown and toolbar in top bar
     soundsetLabel.setText ("Soundset:", juce::dontSendNotification);
@@ -375,10 +452,19 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
 
     audioProcessor.getKeyboardState().addListener (this);
 
+    // Enable keyboard focus for musical typing
+    setWantsKeyboardFocus (true);
+
+    // Resizable window support with persistent aspect ratio
+    setResizable (true, true);
+    setResizeLimits (660, 315, 1760, 840);
+    getConstrainer()->setFixedAspectRatio (880.0 / 420.0);
+
+    // Restore saved window size or default
+    setSize (audioProcessor.getLastEditorWidth(), audioProcessor.getLastEditorHeight());
+
     // UI timer for 30Hz animation and state synchronization
     startTimerHz (30);
-
-    setSize (880, 420);
 }
 
 ToyOrganAudioProcessorEditor::~ToyOrganAudioProcessorEditor()
@@ -428,15 +514,24 @@ void ToyOrganAudioProcessorEditor::paint (juce::Graphics& g)
 
 void ToyOrganAudioProcessorEditor::resized()
 {
-    // Top Bar Area: 50px tall
-    // Logo is drawn in paint at (14, 8) with size 34x34
-    titleLabel.setBounds (54, 10, 200, 30);
+    audioProcessor.setLastEditorSize (getWidth(), getHeight());
 
-    // Controls on the right of the top bar
-    refreshButton.setBounds (getWidth() - 14 - 36, 8, 36, 34);
-    openFolderButton.setBounds (refreshButton.getX() - 8 - 100, 8, 100, 34);
-    soundsetComboBox.setBounds (openFolderButton.getX() - 10 - 160, 8, 160, 34);
-    soundsetLabel.setBounds (soundsetComboBox.getX() - 8 - 70, 8, 70, 34);
+    // Top Bar Area: 50px tall
+    int rightEdge = getWidth() - 14;
+
+    refreshButton.setBounds (rightEdge - 34, 8, 34, 34);
+    openFolderButton.setBounds (refreshButton.getX() - 8 - 90, 8, 90, 34);
+    soundsetComboBox.setBounds (openFolderButton.getX() - 8 - 135, 8, 135, 34);
+    soundsetLabel.setBounds (soundsetComboBox.getX() - 6 - 65, 8, 65, 34);
+
+    layoutComboBox.setBounds (soundsetLabel.getX() - 10 - 95, 8, 95, 34);
+
+    volumeSlider.setBounds (layoutComboBox.getX() - 8 - 120, 8, 120, 34);
+    volumeLabel.setBounds (volumeSlider.getX() - 4 - 32, 8, 32, 34);
+
+    int titleLeft = 54;
+    int titleW = juce::jmax (100, volumeLabel.getX() - 8 - titleLeft);
+    titleLabel.setBounds (titleLeft, 10, titleW, 30);
 
     // -------------------------------------------------------------------------
     // Two Rows of Pictures (Layout matching piano keys with overlap)
@@ -516,11 +611,100 @@ void ToyOrganAudioProcessorEditor::timerCallback()
 {
     animTicks++;
 
+    // Sync volume slider if automated externally by DAW
+    float currentVol = audioProcessor.getMasterVolumeParam()->get();
+    if (! volumeSlider.isMouseButtonDown() && std::abs ((float) volumeSlider.getValue() - currentVol) > 0.005f)
+        volumeSlider.setValue (currentVol, juce::dontSendNotification);
+
+    // Sync soundset dropdown if preset changed via state restore
+    int curIdx = audioProcessor.getCurrentSoundsetIndex();
+    if (soundsetComboBox.getSelectedId() != curIdx + 1)
+        soundsetComboBox.setSelectedId (curIdx + 1, juce::dontSendNotification);
+
+    // Sync layout combo if changed
+    int curLayout = audioProcessor.getKeyboardLayout();
+    if (layoutComboBox.getSelectedId() != curLayout + 1)
+        layoutComboBox.setSelectedId (curLayout + 1, juce::dontSendNotification);
+
+    // Check musical typing keys
+    updateComputerKeyboardNotes();
+
     for (int i = 0; i < 13; ++i)
     {
         int note = audioProcessor.getKeySlots()[(size_t) i].noteNumber;
         bool isDown = audioProcessor.getKeyboardState().isNoteOnForChannels (0xffff, note);
         keyViews[(size_t) i]->setIsPressed (isDown);
         keyViews[(size_t) i]->updateAnimation (animTicks);
+    }
+}
+
+bool ToyOrganAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
+{
+    juce::ignoreUnused (key);
+    updateComputerKeyboardNotes();
+    return true;
+}
+
+bool ToyOrganAudioProcessorEditor::keyStateChanged (bool isKeyDown)
+{
+    juce::ignoreUnused (isKeyDown);
+    updateComputerKeyboardNotes();
+    return true;
+}
+
+void ToyOrganAudioProcessorEditor::focusLost (FocusChangeType)
+{
+    for (int i = 0; i < 13; ++i)
+    {
+        if (computerKeyHeld[i])
+        {
+            computerKeyHeld[i] = false;
+            audioProcessor.getKeyboardState().noteOff (1, 60 + i, 0.0f);
+            keyViews[(size_t) i]->setIsPressed (false);
+        }
+    }
+}
+
+void ToyOrganAudioProcessorEditor::updateComputerKeyboardNotes()
+{
+    if (! hasKeyboardFocus (true))
+        return;
+
+    int layout = audioProcessor.getKeyboardLayout();
+
+    for (int i = 0; i < 13; ++i)
+    {
+        juce::String shortcut = audioProcessor.getShortcutForSlot (i);
+        if (shortcut.isNotEmpty())
+        {
+            auto ch = shortcut[0];
+            int keyCode = (int) juce::CharacterFunctions::toUpperCase (ch);
+            bool isDown = juce::KeyPress::isKeyCurrentlyDown (keyCode);
+
+            // Handle QWERTY / QWERTZ swap alias for G# (slot 8)
+            if (i == 8)
+            {
+                if (layout == 1) // QWERTZ
+                    isDown = isDown || juce::KeyPress::isKeyCurrentlyDown ('Y');
+                else if (layout == 0) // QWERTY
+                    isDown = isDown || juce::KeyPress::isKeyCurrentlyDown ('Z');
+            }
+
+            if (isDown != computerKeyHeld[i])
+            {
+                computerKeyHeld[i] = isDown;
+                int midiNote = 60 + i;
+                if (isDown)
+                {
+                    audioProcessor.getKeyboardState().noteOn (1, midiNote, 1.0f);
+                    keyViews[(size_t) i]->setIsPressed (true);
+                }
+                else
+                {
+                    audioProcessor.getKeyboardState().noteOff (1, midiNote, 0.0f);
+                    keyViews[(size_t) i]->setIsPressed (false);
+                }
+            }
+        }
     }
 }

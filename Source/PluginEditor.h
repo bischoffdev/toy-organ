@@ -19,6 +19,10 @@ public:
                                const juce::Colour& backgroundColour,
                                bool shouldDrawButtonAsHighlighted,
                                bool shouldDrawButtonAsDown) override;
+
+    void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                           float sliderPos, float minSliderPos, float maxSliderPos,
+                           const juce::Slider::SliderStyle style, juce::Slider& slider) override;
 };
 
 //==============================================================================
@@ -75,6 +79,11 @@ public:
 
     void timerCallback() override;
 
+    // Musical typing via computer keyboard
+    bool keyPressed (const juce::KeyPress& key) override;
+    bool keyStateChanged (bool isKeyDown) override;
+    void focusLost (FocusChangeType cause) override;
+
 private:
     ToyOrganAudioProcessor& audioProcessor;
     ToyOrganLookAndFeel customLookAndFeel;
@@ -87,13 +96,24 @@ private:
 
     // Header controls
     juce::Label titleLabel;
+
+    // Master volume
+    juce::Label volumeLabel;
+    juce::Slider volumeSlider;
+
+    // Keyboard layout selector
+    juce::ComboBox layoutComboBox;
+
+    // Soundset dropdown and toolbar in top bar
     juce::Label soundsetLabel;
     juce::ComboBox soundsetComboBox;
     juce::TextButton openFolderButton;
     juce::TextButton refreshButton;
 
     void populateSoundsets();
+    void updateComputerKeyboardNotes();
 
+    bool computerKeyHeld[13] = { false };
     int animTicks = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganAudioProcessorEditor)

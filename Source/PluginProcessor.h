@@ -19,13 +19,17 @@ public:
     bool canPlaySound (juce::SynthesiserSound* sound) override;
     void startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int currentPitchWheelPosition) override;
     void stopNote (float velocity, bool allowTailOff) override;
-    void pitchWheelMoved (int) override {}
-    void controllerMoved (int, int) override {}
+    void pitchWheelMoved (int newValue) override;
+    void controllerMoved (int controllerNumber, int newValue) override;
     void renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override;
 
 private:
     double currentAngle = 0.0;
+    double baseAngleDelta = 0.0;
     double angleDelta = 0.0;
+    double pitchBendRatio = 1.0;
+    float vibratoDepth = 0.0f;
+    double lfoPhase = 0.0;
     float level = 0.0f;
     float tailOff = 0.0f;
 };
@@ -40,6 +44,63 @@ public:
 
 private:
     ToyOrganAudioProcessor& processor;
+};
+
+//==============================================================================
+/** Custom Sampled Sound storing sample audio buffer and parameters */
+class ToyOrganSampledSound : public juce::SynthesiserSound
+{
+public:
+    ToyOrganSampledSound (const juce::String& name,
+                          juce::AudioFormatReader& reader,
+                          const juce::BigInteger& notes,
+                          int midiRootNote,
+                          double attackTimeSecs,
+                          double releaseTimeSecs,
+                          double maxSampleLengthSeconds);
+
+    bool appliesToNote (int midiNoteNumber) override { return midiNotes[midiNoteNumber]; }
+    bool appliesToChannel (int) override { return true; }
+
+    const juce::AudioBuffer<float>& getData() const noexcept { return data; }
+    int getLength() const noexcept { return length; }
+    int getRootNote() const noexcept { return rootNote; }
+    double getSourceSampleRate() const noexcept { return sourceSampleRate; }
+    juce::ADSR::Parameters getParams() const noexcept { return params; }
+
+private:
+    juce::String name;
+    juce::BigInteger midiNotes;
+    int rootNote = 60;
+    double sourceSampleRate = 44100.0;
+    int length = 0;
+    juce::AudioBuffer<float> data;
+    juce::ADSR::Parameters params;
+};
+
+//==============================================================================
+/** Custom Sampled Voice supporting pitch wheel and modulation vibrato */
+class ToyOrganSampledVoice : public juce::SynthesiserVoice
+{
+public:
+    ToyOrganSampledVoice() = default;
+
+    bool canPlaySound (juce::SynthesiserSound* s) override;
+    void startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound* s, int currentPitchWheelPosition) override;
+    void stopNote (float velocity, bool allowTailOff) override;
+    void pitchWheelMoved (int newValue) override;
+    void controllerMoved (int controllerNumber, int newValue) override;
+    void renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override;
+
+private:
+    ToyOrganSampledSound* playingSound = nullptr;
+    double pitchRatio = 1.0;
+    double pitchBendRatio = 1.0;
+    float vibratoDepth = 0.0f;
+    double lfoPhase = 0.0;
+    double sourceSamplePosition = 0.0;
+    float gain = 0.0f;
+    juce::ADSR adsr;
 };
 
 //==============================================================================
@@ -138,6 +199,19 @@ public:
     juce::File getSoundsetsFolder() const;
     void openSoundsetsFolder();
 
+    // Volume & Parameters
+    juce::AudioParameterFloat* getMasterVolumeParam() { return masterVolumeParam; }
+
+    // Musical typing layout (0 = QWERTY, 1 = QWERTZ, 2 = AZERTY)
+    int getKeyboardLayout() const { return currentKeyboardLayout; }
+    void setKeyboardLayout (int layout) { currentKeyboardLayout = layout; }
+    juce::String getShortcutForSlot (int slotIndex) const;
+
+    // Resizable editor size persistence
+    int getLastEditorWidth() const { return lastEditorWidth; }
+    int getLastEditorHeight() const { return lastEditorHeight; }
+    void setLastEditorSize (int w, int h) { lastEditorWidth = w; lastEditorHeight = h; }
+
 private:
     juce::MidiKeyboardState keyboardState;
     juce::Synthesiser synth;
@@ -148,6 +222,13 @@ private:
     juce::StringArray soundsetNames;
     int currentSoundsetIndex = 0;
     SoundsetInfo currentSoundset;
+
+    juce::AudioParameterFloat* masterVolumeParam = nullptr;
+    juce::SmoothedValue<float> smoothVolume;
+
+    int currentKeyboardLayout = 0;
+    int lastEditorWidth = 880;
+    int lastEditorHeight = 420;
 
     void loadSoundsetFromFolder (const juce::File& folder);
 
