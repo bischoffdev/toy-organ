@@ -70,7 +70,7 @@ void ToyOrganLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height
 {
     juce::ignoreUnused (buttonX, buttonY, buttonW, buttonH, isButtonDown);
     auto bounds = juce::Rectangle<float> (1.0f, 1.0f, (float) width - 2.0f, (float) height - 2.0f);
-    float corner = bounds.getHeight() * 0.5f;
+    float corner = 6.0f;
 
     juce::Colour bg = box.findColour (juce::ComboBox::backgroundColourId);
     if (box.isMouseOver())
@@ -78,19 +78,31 @@ void ToyOrganLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height
     g.setColour (bg);
     g.fillRoundedRectangle (bounds, corner);
 
-    g.setColour (box.findColour (juce::ComboBox::outlineColourId));
-    g.drawRoundedRectangle (bounds, corner, 1.5f);
+    g.setColour (box.isMouseOver() ? juce::Colour (0xFFFF7F00) : box.findColour (juce::ComboBox::outlineColourId));
+    g.drawRoundedRectangle (bounds, corner, 1.2f);
 
-    auto arrowArea = bounds.removeFromRight (28.0f);
+    auto arrowArea = bounds.removeFromRight (18.0f);
     juce::Path arrow;
-    float cx = arrowArea.getCentreX();
+    float cx = arrowArea.getCentreX() - 2.0f;
     float cy = arrowArea.getCentreY();
-    arrow.startNewSubPath (cx - 4.0f, cy - 2.0f);
-    arrow.lineTo (cx, cy + 2.5f);
-    arrow.lineTo (cx + 4.0f, cy - 2.0f);
+    arrow.startNewSubPath (cx - 3.5f, cy - 1.5f);
+    arrow.lineTo (cx, cy + 2.0f);
+    arrow.lineTo (cx + 3.5f, cy - 1.5f);
 
     g.setColour (box.findColour (juce::ComboBox::arrowColourId));
-    g.strokePath (arrow, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.strokePath (arrow, juce::PathStrokeType (1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
+juce::Font ToyOrganLookAndFeel::getComboBoxFont (juce::ComboBox& box)
+{
+    juce::ignoreUnused (box);
+    return juce::FontOptions (12.0f, juce::Font::bold);
+}
+
+void ToyOrganLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
+{
+    label.setBounds (2, 1, box.getWidth() - 20, box.getHeight() - 2);
+    label.setFont (getComboBoxFont (box));
 }
 
 void ToyOrganLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& button,
@@ -99,7 +111,7 @@ void ToyOrganLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button&
                                                bool shouldDrawButtonAsDown)
 {
     auto bounds = button.getLocalBounds().toFloat().reduced (1.0f);
-    float corner = bounds.getHeight() * 0.5f;
+    float corner = 6.0f;
 
     juce::Colour base = backgroundColour;
     if (shouldDrawButtonAsDown)
@@ -115,6 +127,101 @@ void ToyOrganLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button&
 
     g.setColour (shouldDrawButtonAsHighlighted ? juce::Colour (0xFFFF7F00) : juce::Colour (0xFF3F495A));
     g.drawRoundedRectangle (bounds, corner, 1.2f);
+}
+
+//==============================================================================
+// ToyOrganIconButton Implementation (Crisp vector icons)
+//==============================================================================
+ToyOrganIconButton::ToyOrganIconButton (IconType type, const juce::String& tooltipText)
+    : juce::Button (juce::String()), iconType (type)
+{
+    if (tooltipText.isNotEmpty())
+        setTooltip (tooltipText);
+}
+
+void ToyOrganIconButton::paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown)
+{
+    auto bounds = getLocalBounds().toFloat().reduced (1.0f);
+    float corner = 6.0f;
+
+    juce::Colour bg (0xFF242A36);
+    if (shouldDrawButtonAsDown)
+        bg = bg.darker (0.15f);
+    else if (shouldDrawButtonAsHighlighted)
+        bg = bg.brighter (0.08f);
+
+    g.setColour (juce::Colour (0x20000000));
+    g.fillRoundedRectangle (bounds.translated (0.0f, 1.5f), corner);
+
+    g.setColour (bg);
+    g.fillRoundedRectangle (bounds, corner);
+
+    g.setColour (shouldDrawButtonAsHighlighted ? juce::Colour (0xFFFF7F00) : juce::Colour (0xFF3F495A));
+    g.drawRoundedRectangle (bounds, corner, 1.2f);
+
+    auto iconColour = shouldDrawButtonAsHighlighted ? juce::Colour (0xFFFF7F00) : juce::Colour (0xFFF8FAFC);
+    g.setColour (iconColour);
+
+    auto center = bounds.getCentre();
+
+    switch (iconType)
+    {
+        case IconType::Prev:
+        {
+            juce::Path p;
+            p.startNewSubPath (center.x + 2.5f, center.y - 5.0f);
+            p.lineTo (center.x - 2.5f, center.y);
+            p.lineTo (center.x + 2.5f, center.y + 5.0f);
+            g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            break;
+        }
+        case IconType::Next:
+        {
+            juce::Path p;
+            p.startNewSubPath (center.x - 2.5f, center.y - 5.0f);
+            p.lineTo (center.x + 2.5f, center.y);
+            p.lineTo (center.x - 2.5f, center.y + 5.0f);
+            g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            break;
+        }
+        case IconType::Folder:
+        {
+            float fw = 14.0f;
+            float fh = 10.0f;
+            float fx = center.x - fw * 0.5f;
+            float fy = center.y - fh * 0.5f;
+
+            juce::Path p;
+            p.startNewSubPath (fx, fy + 2.0f);
+            p.lineTo (fx + 4.5f, fy + 2.0f);
+            p.lineTo (fx + 6.0f, fy + 3.5f);
+            p.lineTo (fx + fw, fy + 3.5f);
+            p.lineTo (fx + fw, fy + fh);
+            p.lineTo (fx, fy + fh);
+            p.closeSubPath();
+            g.strokePath (p, juce::PathStrokeType (1.5f, juce::PathStrokeType::mitered, juce::PathStrokeType::rounded));
+            g.drawLine (fx + 1.0f, fy + 5.0f, fx + fw - 1.0f, fy + 5.0f, 1.2f);
+            break;
+        }
+        case IconType::Reload:
+        {
+            float r = 5.0f;
+            juce::Path p;
+            p.addCentredArc (center.x, center.y, r, r, 0.0f, juce::degreesToRadians (55.0f), juce::degreesToRadians (315.0f), true);
+            g.strokePath (p, juce::PathStrokeType (1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+            float endAngle = juce::degreesToRadians (315.0f);
+            float ax = center.x + r * std::sin (endAngle);
+            float ay = center.y - r * std::cos (endAngle);
+
+            juce::Path head;
+            head.startNewSubPath (ax - 2.0f, ay - 3.5f);
+            head.lineTo (ax + 1.0f, ay);
+            head.lineTo (ax - 3.5f, ay + 1.0f);
+            g.strokePath (head, juce::PathStrokeType (1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            break;
+        }
+    }
 }
 
 //==============================================================================
@@ -374,50 +481,30 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
     for (int idx : whiteSlotIndices)
         addAndMakeVisible (*keyViews[(size_t) idx]);
 
-    // Title label in top bar (light text on dark bar)
+    // 1. Header Left: Branding Title
     titleLabel.setText ("LAXERSAZ ORGAN", juce::dontSendNotification);
-    titleLabel.setFont (juce::FontOptions (18.0f, juce::Font::bold));
+    titleLabel.setFont (juce::FontOptions (16.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, juce::Colour (0xFFFFFFFF));
     addAndMakeVisible (titleLabel);
 
-    // Master volume label and slider
-    volumeLabel.setText ("Vol:", juce::dontSendNotification);
-    volumeLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-    volumeLabel.setColour (juce::Label::textColourId, juce::Colour (0xFFE2E8F0));
-    volumeLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (volumeLabel);
-
-    volumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    volumeSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 42, 20);
-    volumeSlider.setRange (0.0, 1.0, 0.01);
-    volumeSlider.setValue (audioProcessor.getMasterVolumeParam()->get(), juce::dontSendNotification);
-    volumeSlider.onValueChange = [this]()
+    // 2. Header Center: Soundset Preset Bar (< [Soundset Name] > [📁] [↻])
+    prevSoundsetButton.onClick = [this]()
     {
-        *audioProcessor.getMasterVolumeParam() = (float) volumeSlider.getValue();
+        int count = audioProcessor.getSoundsetNames().size();
+        if (count > 0)
+        {
+            int newIdx = (audioProcessor.getCurrentSoundsetIndex() - 1 + count) % count;
+            audioProcessor.loadSoundsetByIndex (newIdx);
+            populateSoundsets();
+            for (auto& kv : keyViews)
+                kv->repaint();
+            repaint();
+        }
     };
-    addAndMakeVisible (volumeSlider);
-
-    // Keyboard layout selector for musical typing
-    layoutComboBox.addItem (juce::CharPointer_UTF8 ("\xe2\x8c\xa8 QWERTY"), 1); // ⌨ QWERTY
-    layoutComboBox.addItem (juce::CharPointer_UTF8 ("\xe2\x8c\xa8 QWERTZ"), 2); // ⌨ QWERTZ
-    layoutComboBox.addItem (juce::CharPointer_UTF8 ("\xe2\x8c\xa8 AZERTY"), 3); // ⌨ AZERTY
-    layoutComboBox.setSelectedId (audioProcessor.getKeyboardLayout() + 1, juce::dontSendNotification);
-    layoutComboBox.onChange = [this]()
-    {
-        audioProcessor.setKeyboardLayout (layoutComboBox.getSelectedId() - 1);
-        for (auto& kv : keyViews)
-            kv->repaint();
-    };
-    addAndMakeVisible (layoutComboBox);
-
-    // Soundset dropdown and toolbar in top bar
-    soundsetLabel.setText ("Soundset:", juce::dontSendNotification);
-    soundsetLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-    soundsetLabel.setColour (juce::Label::textColourId, juce::Colour (0xFFE2E8F0));
-    soundsetLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (soundsetLabel);
+    addAndMakeVisible (prevSoundsetButton);
 
     addAndMakeVisible (soundsetComboBox);
+    soundsetComboBox.setJustificationType (juce::Justification::centred);
     soundsetComboBox.onChange = [this]()
     {
         int selectedId = soundsetComboBox.getSelectedId();
@@ -430,14 +517,27 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
         }
     };
 
-    openFolderButton.setButtonText (juce::CharPointer_UTF8 ("\xf0\x9f\x93\x81 Ordner...")); // 📁 Ordner...
+    nextSoundsetButton.onClick = [this]()
+    {
+        int count = audioProcessor.getSoundsetNames().size();
+        if (count > 0)
+        {
+            int newIdx = (audioProcessor.getCurrentSoundsetIndex() + 1) % count;
+            audioProcessor.loadSoundsetByIndex (newIdx);
+            populateSoundsets();
+            for (auto& kv : keyViews)
+                kv->repaint();
+            repaint();
+        }
+    };
+    addAndMakeVisible (nextSoundsetButton);
+
     openFolderButton.onClick = [this]()
     {
         audioProcessor.openSoundsetsFolder();
     };
     addAndMakeVisible (openFolderButton);
 
-    refreshButton.setButtonText (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x84")); // 🔄
     refreshButton.onClick = [this]()
     {
         audioProcessor.scanForSoundsets();
@@ -447,6 +547,42 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
         repaint();
     };
     addAndMakeVisible (refreshButton);
+
+    // 3. Header Right: Keyboard layout selector & Master Volume
+    layoutComboBox.addItem ("QWERTY", 1);
+    layoutComboBox.addItem ("QWERTZ", 2);
+    layoutComboBox.addItem ("AZERTY", 3);
+    layoutComboBox.setSelectedId (audioProcessor.getKeyboardLayout() + 1, juce::dontSendNotification);
+    layoutComboBox.onChange = [this]()
+    {
+        audioProcessor.setKeyboardLayout (layoutComboBox.getSelectedId() - 1);
+        for (auto& kv : keyViews)
+            kv->repaint();
+    };
+    addAndMakeVisible (layoutComboBox);
+
+    volumeLabel.setText ("VOL", juce::dontSendNotification);
+    volumeLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    volumeLabel.setColour (juce::Label::textColourId, juce::Colour (0xFF94A3B8));
+    volumeLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (volumeLabel);
+
+    volumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    volumeSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    volumeSlider.setRange (0.0, 1.0, 0.01);
+    volumeSlider.setValue (audioProcessor.getMasterVolumeParam()->get(), juce::dontSendNotification);
+    volumeSlider.onValueChange = [this]()
+    {
+        *audioProcessor.getMasterVolumeParam() = (float) volumeSlider.getValue();
+        volValueLabel.setText (juce::String (juce::roundToInt (volumeSlider.getValue() * 100.0f)) + "%", juce::dontSendNotification);
+    };
+    addAndMakeVisible (volumeSlider);
+
+    volValueLabel.setText (juce::String (juce::roundToInt (volumeSlider.getValue() * 100.0f)) + "%", juce::dontSendNotification);
+    volValueLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    volValueLabel.setColour (juce::Label::textColourId, juce::Colour (0xFFF8FAFC));
+    volValueLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (volValueLabel);
 
     populateSoundsets();
 
@@ -489,24 +625,24 @@ void ToyOrganAudioProcessorEditor::populateSoundsets()
 void ToyOrganAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // 1. Top Bar: Always light-on-dark, unaffected by soundset background color
-    auto topBarArea = juce::Rectangle<float> (0.0f, 0.0f, (float) getWidth(), 50.0f);
+    auto topBarArea = juce::Rectangle<float> (0.0f, 0.0f, (float) getWidth(), 54.0f);
     g.setColour (juce::Colour (0xFF14171E));
     g.fillRect (topBarArea);
 
     // Divider line between top bar and lower area
     g.setColour (juce::Colour (0xFF262C38));
-    g.drawHorizontalLine (50, 0.0f, (float) getWidth());
+    g.drawHorizontalLine (54, 0.0f, (float) getWidth());
 
     // Logo at top left
     if (logoImage.isValid())
     {
-        auto logoRect = juce::Rectangle<float> (14.0f, 8.0f, 34.0f, 34.0f);
+        auto logoRect = juce::Rectangle<float> (16.0f, 9.0f, 36.0f, 36.0f);
         g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
         g.drawImage (logoImage, logoRect, juce::RectanglePlacement::centred);
     }
 
     // 2. Lower Area: Entire background below the top bar uses the soundset color
-    auto lowerArea = juce::Rectangle<float> (0.0f, 51.0f, (float) getWidth(), (float) getHeight() - 51.0f);
+    auto lowerArea = juce::Rectangle<float> (0.0f, 55.0f, (float) getWidth(), (float) getHeight() - 55.0f);
     const auto& soundset = audioProcessor.getCurrentSoundset();
     g.setColour (soundset.keyColor);
     g.fillRect (lowerArea);
@@ -516,27 +652,69 @@ void ToyOrganAudioProcessorEditor::resized()
 {
     audioProcessor.setLastEditorSize (getWidth(), getHeight());
 
-    // Top Bar Area: 50px tall
-    int rightEdge = getWidth() - 14;
-
-    refreshButton.setBounds (rightEdge - 34, 8, 34, 34);
-    openFolderButton.setBounds (refreshButton.getX() - 8 - 90, 8, 90, 34);
-    soundsetComboBox.setBounds (openFolderButton.getX() - 8 - 135, 8, 135, 34);
-    soundsetLabel.setBounds (soundsetComboBox.getX() - 6 - 65, 8, 65, 34);
-
-    layoutComboBox.setBounds (soundsetLabel.getX() - 10 - 95, 8, 95, 34);
-
-    volumeSlider.setBounds (layoutComboBox.getX() - 8 - 120, 8, 120, 34);
-    volumeLabel.setBounds (volumeSlider.getX() - 4 - 32, 8, 32, 34);
-
-    int titleLeft = 54;
-    int titleW = juce::jmax (100, volumeLabel.getX() - 8 - titleLeft);
-    titleLabel.setBounds (titleLeft, 10, titleW, 30);
+    int w = getWidth();
+    int h = getHeight();
 
     // -------------------------------------------------------------------------
-    // Two Rows of Pictures (Layout matching piano keys with overlap)
+    // 1. Header Left: Logo & Branding Title
     // -------------------------------------------------------------------------
-    auto lowerArea = juce::Rectangle<int> (0, 51, getWidth(), getHeight() - 51);
+    int titleW = (w < 720) ? 120 : 150;
+    titleLabel.setBounds (56, 12, titleW, 30);
+    int leftBoundary = titleLabel.getRight() + 8;
+
+    // -------------------------------------------------------------------------
+    // 2. Header Right: Master Volume & Keyboard Layout
+    // -------------------------------------------------------------------------
+    int rightEdge = w - 14;
+
+    // Volume percentage label: 30px
+    volValueLabel.setBounds (rightEdge - 30, 12, 30, 30);
+    rightEdge = volValueLabel.getX() - 2;
+
+    // Volume horizontal slider: responsive width between 46px and 65px
+    int sliderW = juce::jlimit (46, 65, (w - 660) / 6 + 46);
+    volumeSlider.setBounds (rightEdge - sliderW, 12, sliderW, 30);
+    rightEdge = volumeSlider.getX() - 5;
+
+    // "VOL" label: 24px
+    volumeLabel.setBounds (rightEdge - 24, 12, 24, 30);
+    rightEdge = volumeLabel.getX() - 10;
+
+    // Keyboard layout selector dropdown: 76px to 86px
+    int layoutW = (w < 720) ? 76 : 86;
+    layoutComboBox.setBounds (rightEdge - layoutW, 12, layoutW, 30);
+    int rightBoundary = layoutComboBox.getX() - 10;
+
+    // -------------------------------------------------------------------------
+    // 3. Header Center: Soundset Preset Bar (< [Name] > [📁] [↻])
+    // -------------------------------------------------------------------------
+    int btnW = 26;
+    int btnGap = 3;
+    int fixedBarW = btnW + btnGap + btnGap + btnW + 5 + btnW + btnGap + btnW; // 4 buttons + spacing = 118px
+
+    int availableForBar = rightBoundary - leftBoundary;
+    int maxComboW = availableForBar - fixedBarW - 12;
+    int comboW = juce::jlimit (85, 135, maxComboW);
+
+    int centerBarW = fixedBarW + comboW;
+    int centerStartX = (w - centerBarW) / 2;
+
+    // Anti-collision clamping: guarantee center bar NEVER overlaps left or right zones
+    if (centerStartX < leftBoundary)
+        centerStartX = leftBoundary;
+    if (centerStartX + centerBarW > rightBoundary)
+        centerStartX = rightBoundary - centerBarW;
+
+    prevSoundsetButton.setBounds (centerStartX, 12, btnW, 30);
+    soundsetComboBox.setBounds (prevSoundsetButton.getRight() + btnGap, 12, comboW, 30);
+    nextSoundsetButton.setBounds (soundsetComboBox.getRight() + btnGap, 12, btnW, 30);
+    openFolderButton.setBounds (nextSoundsetButton.getRight() + 5, 12, btnW, 30);
+    refreshButton.setBounds (openFolderButton.getRight() + btnGap, 12, btnW, 30);
+
+    // -------------------------------------------------------------------------
+    // 4. Lower Area: Two Rows of Mascot Piano Keys
+    // -------------------------------------------------------------------------
+    auto lowerArea = juce::Rectangle<int> (0, 55, w, h - 55);
 
     // 8 Natural notes: C4 (0), D4 (2), E4 (4), F4 (5), G4 (7), A4 (9), B4 (11), C5 (12)
     const int whiteSlotIndices[8] = { 0, 2, 4, 5, 7, 9, 11, 12 };
@@ -614,7 +792,10 @@ void ToyOrganAudioProcessorEditor::timerCallback()
     // Sync volume slider if automated externally by DAW
     float currentVol = audioProcessor.getMasterVolumeParam()->get();
     if (! volumeSlider.isMouseButtonDown() && std::abs ((float) volumeSlider.getValue() - currentVol) > 0.005f)
+    {
         volumeSlider.setValue (currentVol, juce::dontSendNotification);
+        volValueLabel.setText (juce::String (juce::roundToInt (currentVol * 100.0f)) + "%", juce::dontSendNotification);
+    }
 
     // Sync soundset dropdown if preset changed via state restore
     int curIdx = audioProcessor.getCurrentSoundsetIndex();

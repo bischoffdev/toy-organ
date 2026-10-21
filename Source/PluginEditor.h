@@ -15,6 +15,9 @@ public:
                        int buttonX, int buttonY, int buttonW, int buttonH,
                        juce::ComboBox& box) override;
 
+    juce::Font getComboBoxFont (juce::ComboBox& box) override;
+    void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override;
+
     void drawButtonBackground (juce::Graphics& g, juce::Button& button,
                                const juce::Colour& backgroundColour,
                                bool shouldDrawButtonAsHighlighted,
@@ -23,6 +26,22 @@ public:
     void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
                            float sliderPos, float minSliderPos, float maxSliderPos,
                            const juce::Slider::SliderStyle style, juce::Slider& slider) override;
+};
+
+//==============================================================================
+/** Vector icon button for header toolbar (crisp, resolution-independent) */
+class ToyOrganIconButton : public juce::Button
+{
+public:
+    enum class IconType { Prev, Next, Folder, Reload };
+
+    ToyOrganIconButton (IconType type, const juce::String& tooltipText = {});
+
+    void paintButton (juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override;
+
+private:
+    IconType iconType;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganIconButton)
 };
 
 //==============================================================================
@@ -94,21 +113,21 @@ private:
     // Logo image at top left
     juce::Image logoImage;
 
-    // Header controls
+    // Header controls - Left
     juce::Label titleLabel;
 
-    // Master volume
+    // Header controls - Center Soundset Browser
+    ToyOrganIconButton prevSoundsetButton { ToyOrganIconButton::IconType::Prev, "Vorheriges Soundset" };
+    juce::ComboBox soundsetComboBox;
+    ToyOrganIconButton nextSoundsetButton { ToyOrganIconButton::IconType::Next, "Nächstes Soundset" };
+    ToyOrganIconButton openFolderButton   { ToyOrganIconButton::IconType::Folder, "Soundsets-Ordner öffnen" };
+    ToyOrganIconButton refreshButton      { ToyOrganIconButton::IconType::Reload, "Soundsets neu laden" };
+
+    // Header controls - Right
+    juce::ComboBox layoutComboBox;
     juce::Label volumeLabel;
     juce::Slider volumeSlider;
-
-    // Keyboard layout selector
-    juce::ComboBox layoutComboBox;
-
-    // Soundset dropdown and toolbar in top bar
-    juce::Label soundsetLabel;
-    juce::ComboBox soundsetComboBox;
-    juce::TextButton openFolderButton;
-    juce::TextButton refreshButton;
+    juce::Label volValueLabel;
 
     void populateSoundsets();
     void updateComputerKeyboardNotes();
