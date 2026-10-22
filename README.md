@@ -18,14 +18,18 @@ Select a soundset from the dropdown menu in the top bar. If a soundset has no sa
 To add custom soundsets:
 1. Click the folder button in the top bar to open the soundsets directory (`~/Music/LaxersazOrgan/Soundsets/` on macOS/Linux, `%USERPROFILE%\Music\LaxersazOrgan\Soundsets\` on Windows).
 2. Create a new subfolder with:
-   * Audio: `01.wav` to `13.wav` for each note, or a single sample (e.g. `sample.wav`) pitched across the octave.
-   * Images: `idle.png` (idle mascot) and `active.png` (singing/active mascot).
-   * Key Color: Optional `color.txt` containing a hex color code (e.g. `#FFEAA7`).
-3. Click the reload button to scan and load the new soundset.
+   * Audio: `01.wav` to `13.wav` for each chromatic note (C4 to C5), or a single sample (e.g. `sample.wav`) pitched automatically across the octave. Supported formats: WAV, AIFF, FLAC, OGG.
+   * Visuals (choose either single images or animated image sequences):
+     * Single images: `idle.png` (resting mascot) and `active.png` (singing mascot).
+     * Animated image sequences:
+       * `idle/` folder containing sequentially numbered frames (`01.png`, `02.png`, ...) that loop continuously while idle.
+       * `active/` folder containing sequentially numbered frames (`01.png`, `02.png`, ...) that animate when notes are played.
+   * Background Color: Optional `color.txt` containing a hex color code (e.g. `#FFEAA7` or `#353B48`).
+3. Click the reload button in the top bar to scan and load the new soundset.
 
 ## Installation
 
-Download the release zip for your operating system and run the installer:
+[Download the latest release](https://github.com/bischoffdev/toy-organ/releases/latest) for your operating system and run the installer:
 
 * macOS: Double-click `install.command` (or run `./install.sh` in Terminal). To uninstall: `./install.sh --uninstall`.
 * Windows: Double-click `install.bat`. To uninstall: `install.bat --uninstall`.

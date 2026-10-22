@@ -3,6 +3,7 @@ name: Build & Package Audio Plugins
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
   release:
     types: [published]
@@ -28,6 +29,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Extract Version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            RAW="${{ github.event.release.tag_name }}"
+            VER="${RAW#v}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            RAW="${{ github.ref_name }}"
+            VER="${RAW#v}"
+          else
+            VER="0.1.0"
+          fi
+          echo "version=$VER" >> $GITHUB_OUTPUT
+          echo "Building plugin version: $VER"
 
       # Cache JUCE downloaded via FetchContent to dramatically speed up subsequent builds
       - name: Cache FetchContent
@@ -59,17 +76,18 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DORGAN_VERSION="${{ steps.ver.outputs.version }}"
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         run: |
-          cmake -B build -A x64
+          cmake -B build -A x64 -DORGAN_VERSION="${{ steps.ver.outputs.version }}"
 
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DORGAN_VERSION="${{ steps.ver.outputs.version }}"
 
       - name: Build Plugin (Release)
         run: |

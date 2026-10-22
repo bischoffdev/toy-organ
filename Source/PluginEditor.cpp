@@ -485,6 +485,7 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
     titleLabel.setText ("LAXERSAZ ORGAN", juce::dontSendNotification);
     titleLabel.setFont (juce::FontOptions (16.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, juce::Colour (0xFFFFFFFF));
+    titleLabel.setTooltip (juce::String ("Laxersaz Organ v") + JucePlugin_VersionString);
     addAndMakeVisible (titleLabel);
 
     // 2. Header Center: Soundset Preset Bar (< [Soundset Name] > [📁] [↻])
