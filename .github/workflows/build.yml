@@ -1,9 +1,14 @@
 name: Build & Package Audio Plugins
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   release:
     types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -81,7 +86,8 @@ jobs:
           find build/ToyOrgan_artefacts -name "*.lv2" -exec cp -R {} artifacts/ \; 2>/dev/null || true
           cp -R Soundsets artifacts/ 2>/dev/null || true
           cp install.sh artifacts/ 2>/dev/null || true
-          chmod +x artifacts/install.sh 2>/dev/null || true
+          cp install.command artifacts/ 2>/dev/null || true
+          chmod +x artifacts/install.sh artifacts/install.command 2>/dev/null || true
 
       - name: Stage Artifacts (Windows)
         if: runner.os == 'Windows'
@@ -111,3 +117,14 @@ jobs:
           name: LaxersazOrgan-${{ matrix.platform_name }}
           path: artifacts/
           if-no-files-found: warn
+
+      - name: Attach Zip to GitHub Release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd artifacts
+          zip -r ../LaxersazOrgan-${{ matrix.platform_name }}.zip .
+          cd ..
+          gh release upload "${{ github.event.release.tag_name }}" LaxersazOrgan-${{ matrix.platform_name }}.zip --clobber

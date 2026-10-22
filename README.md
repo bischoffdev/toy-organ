@@ -27,10 +27,11 @@ To add custom soundsets:
 
 Download the release zip for your operating system and run the installer:
 
-* macOS / Linux: Run `./install.sh` in the terminal. To uninstall: `./install.sh --uninstall`.
+* macOS: Double-click `install.command` (or run `./install.sh` in Terminal). To uninstall: `./install.sh --uninstall`.
 * Windows: Double-click `install.bat`. To uninstall: `install.bat --uninstall`.
+* Linux: Run `./install.sh` in the terminal. To uninstall: `./install.sh --uninstall`.
 
-The installer copies the plugin binaries to your system plugin directory and installs factory soundsets to your user Music directory. Reinstalling updates factory files and binaries while preserving any custom soundset folders you created.
+The installer copies the plugin binaries to your system plugin directory (VST3, AU, LV2, Standalone) and installs factory soundsets to your user Music directory. Reinstalling updates factory files and binaries while preserving any custom soundset folders you created.
 
 ## Building from Source
 
