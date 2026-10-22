@@ -1,12 +1,14 @@
 name: Build & Package Audio Plugins
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  workflow_dispatch:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Plugin version (e.g. 0.1.0)'
+        required: false
+        default: '0.1.0'
 
 permissions:
   contents: write
@@ -37,14 +39,14 @@ jobs:
           if [[ "${{ github.event_name }}" == "release" ]]; then
             RAW="${{ github.event.release.tag_name }}"
             VER="${RAW#v}"
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            RAW="${{ github.ref_name }}"
-            VER="${RAW#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VER="${{ inputs.version }}"
+            VER="${VER#v}"
           else
             VER="0.1.0"
           fi
           echo "version=$VER" >> $GITHUB_OUTPUT
-          echo "Building plugin version: $VER"
+          echo "Building plugin version: $VER (from tag: ${{ github.event.release.tag_name }})"
 
       # Cache JUCE downloaded via FetchContent to dramatically speed up subsequent builds
       - name: Cache FetchContent
@@ -143,6 +145,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd artifacts
-          zip -r ../LaxersazOrgan-${{ matrix.platform_name }}.zip .
+          cmake -E tar cf ../LaxersazOrgan-${{ matrix.platform_name }}.zip --format=zip .
           cd ..
           gh release upload "${{ github.event.release.tag_name }}" LaxersazOrgan-${{ matrix.platform_name }}.zip --clobber
