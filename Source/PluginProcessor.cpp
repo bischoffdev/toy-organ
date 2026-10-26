@@ -1,122 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
-ToyOrganSound::ToyOrganSound (ToyOrganAudioProcessor& proc)
-    : processor (proc)
-{
-}
 
-bool ToyOrganSound::appliesToNote (int midiNoteNumber)
-{
-    // Strictly ONLY support the organ keys (MIDI 60 to 72 = C4 to C5)
-    if (midiNoteNumber < 60 || midiNoteNumber > 72)
-        return false;
-
-    // Fallback synth only sounds if no custom sample is handling this note
-    return ! processor.hasSampleForNote (midiNoteNumber);
-}
-
-//==============================================================================
-bool ToyOrganVoice::canPlaySound (juce::SynthesiserSound* sound)
-{
-    return dynamic_cast<ToyOrganSound*> (sound) != nullptr;
-}
-
-void ToyOrganVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int currentPitchWheelPosition)
-{
-    if (midiNoteNumber < 60 || midiNoteNumber > 72)
-        return;
-
-    currentAngle = 0.0;
-    level = velocity * 0.25f;
-    tailOff = 0.0f;
-    lfoPhase = 0.0;
-
-    auto cyclesPerSecond = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
-    auto cyclesPerSample = cyclesPerSecond / getSampleRate();
-    baseAngleDelta = cyclesPerSample * 2.0 * juce::MathConstants<double>::pi;
-    angleDelta = baseAngleDelta;
-
-    pitchWheelMoved (currentPitchWheelPosition);
-}
-
-void ToyOrganVoice::stopNote (float, bool allowTailOff)
-{
-    if (allowTailOff)
-    {
-        if (tailOff == 0.0f)
-            tailOff = 1.0f;
-    }
-    else
-    {
-        clearCurrentNote();
-        baseAngleDelta = 0.0;
-        angleDelta = 0.0;
-    }
-}
-
-void ToyOrganVoice::pitchWheelMoved (int newValue)
-{
-    pitchBendRatio = std::pow (2.0, (double) (newValue - 8192) / (8192.0 * 6.0));
-}
-
-void ToyOrganVoice::controllerMoved (int controllerNumber, int newValue)
-{
-    if (controllerNumber == 1) // Modulation Wheel
-        vibratoDepth = (float) newValue / 127.0f;
-}
-
-void ToyOrganVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples)
-{
-    if (baseAngleDelta == 0.0)
-        return;
-
-    const double lfoDelta = (2.0 * juce::MathConstants<double>::pi * 5.5) / getSampleRate();
-    const double maxVibratoSemitones = 0.6;
-
-    while (--numSamples >= 0)
-    {
-        double vibratoRatio = 1.0;
-        if (vibratoDepth > 0.001f)
-        {
-            double semitones = std::sin (lfoPhase) * (vibratoDepth * maxVibratoSemitones);
-            vibratoRatio = std::pow (2.0, semitones / 12.0);
-            lfoPhase += lfoDelta;
-            if (lfoPhase >= 2.0 * juce::MathConstants<double>::pi)
-                lfoPhase -= 2.0 * juce::MathConstants<double>::pi;
-        }
-
-        angleDelta = baseAngleDelta * pitchBendRatio * vibratoRatio;
-
-        // A warm additive organ wave (fundamental + 2nd harmonic + 3rd harmonic)
-        auto sample = (float) (std::sin (currentAngle) 
-                             + 0.5 * std::sin (2.0 * currentAngle) 
-                             + 0.25 * std::sin (3.0 * currentAngle)) * level;
-
-        if (tailOff > 0.0f)
-        {
-            sample *= tailOff;
-            tailOff *= 0.99f;
-
-            if (tailOff <= 0.005f)
-            {
-                clearCurrentNote();
-                baseAngleDelta = 0.0;
-                angleDelta = 0.0;
-                break;
-            }
-        }
-
-        for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
-            outputBuffer.addSample (channel, startSample, sample);
-
-        currentAngle += angleDelta;
-        ++startSample;
-    }
-}
-
-//==============================================================================
 ToyOrganSampledSound::ToyOrganSampledSound (const juce::String& soundName,
                                             juce::AudioFormatReader& reader,
                                             const juce::BigInteger& notes,
@@ -277,13 +162,9 @@ ToyOrganAudioProcessor::ToyOrganAudioProcessor()
         )
     ));
 
-    // 8 sampler voices + 8 synth fallback voices for polyphony
+    // 8 sampler voices for polyphony
     for (int i = 0; i < 8; ++i)
         synth.addVoice (new ToyOrganSampledVoice());
-    for (int i = 0; i < 8; ++i)
-        synth.addVoice (new ToyOrganVoice());
-
-    synth.addSound (new ToyOrganSound (*this));
 
     // Configure the 13 chromatic keys (C4 to C5: MIDI notes 60 to 72)
     const char* noteNames[13] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "C" };
@@ -621,14 +502,15 @@ void ToyOrganAudioProcessor::scanForSoundsets()
 
     if (soundsetNames.isEmpty())
     {
-        soundsetNames.add ("Default Synth");
+        soundsetNames.add ("Empty");
         currentSoundsetIndex = 0;
-        currentSoundset.name = "Default Synth";
+        currentSoundset.name = "Empty";
         currentSoundset.hasSamples = false;
         currentSoundset.sampleCount = 0;
         currentSoundset.mascotIdle = juce::Image();
         currentSoundset.mascotActive = juce::Image();
-        currentSoundset.keyColor = juce::Colour (0xFFFFEAA7);
+        currentSoundset.placeholderImage = juce::Image();
+        currentSoundset.keyColor = juce::Colour (0xFFE2E8F0);
     }
     else
     {
@@ -721,6 +603,23 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
             if (! parsed.isTransparent())
             {
                 currentSoundset.keyColor = parsed;
+                break;
+            }
+        }
+    }
+
+    // Look for optional custom soundset placeholder image
+    currentSoundset.placeholderImage = juce::Image();
+    const char* placeholderNames[] = { "placeholder.png", "placeholder.jpg", "missing.png", "missing.jpg", "empty.png", "nosample.png", "no_sample.png" };
+    for (const char* pn : placeholderNames)
+    {
+        auto file = folder.getChildFile (pn);
+        if (file.existsAsFile())
+        {
+            auto img = juce::ImageFileFormat::loadFrom (file);
+            if (img.isValid())
+            {
+                currentSoundset.placeholderImage = img;
                 break;
             }
         }
@@ -836,9 +735,8 @@ void ToyOrganAudioProcessor::loadSoundsetFromFolder (const juce::File& folder)
     else
         currentSoundset.mascotActive = juce::Image();
 
-    // 3. Clear existing sounds and restore ToyOrganSound
+    // 3. Clear existing sounds
     synth.clearSounds();
-    synth.addSound (new ToyOrganSound (*this));
 
     // 4. Map Audio Samples
     if (audioFiles.size() == 1)

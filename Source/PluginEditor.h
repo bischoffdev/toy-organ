@@ -75,6 +75,7 @@ private:
     void triggerNoteOn();
     void triggerNoteOff();
     void drawVectorMascot (juce::Graphics& g, juce::Rectangle<float> area, bool pressed);
+    void drawMissingSamplePlaceholder (juce::Graphics& g, juce::Rectangle<float> area, bool pressed);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToyOrganKeyView)
 };

@@ -10,43 +10,6 @@
 class ToyOrganAudioProcessor;
 
 //==============================================================================
-/** A simple toy-organ synth voice for immediate audio feedback when samples are not loaded. */
-class ToyOrganVoice : public juce::SynthesiserVoice
-{
-public:
-    ToyOrganVoice() = default;
-
-    bool canPlaySound (juce::SynthesiserSound* sound) override;
-    void startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int currentPitchWheelPosition) override;
-    void stopNote (float velocity, bool allowTailOff) override;
-    void pitchWheelMoved (int newValue) override;
-    void controllerMoved (int controllerNumber, int newValue) override;
-    void renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override;
-
-private:
-    double currentAngle = 0.0;
-    double baseAngleDelta = 0.0;
-    double angleDelta = 0.0;
-    double pitchBendRatio = 1.0;
-    float vibratoDepth = 0.0f;
-    double lfoPhase = 0.0;
-    float level = 0.0f;
-    float tailOff = 0.0f;
-};
-
-//==============================================================================
-class ToyOrganSound : public juce::SynthesiserSound
-{
-public:
-    explicit ToyOrganSound (ToyOrganAudioProcessor& proc);
-    bool appliesToNote (int midiNoteNumber) override;
-    bool appliesToChannel (int midiChannel) override { juce::ignoreUnused (midiChannel); return true; }
-
-private:
-    ToyOrganAudioProcessor& processor;
-};
-
-//==============================================================================
 /** Custom Sampled Sound storing sample audio buffer and parameters */
 class ToyOrganSampledSound : public juce::SynthesiserSound
 {
@@ -123,6 +86,7 @@ struct SoundsetInfo
     std::vector<juce::Image> activeFrames;
     juce::Image mascotIdle;
     juce::Image mascotActive;
+    juce::Image placeholderImage;
     juce::Colour keyColor { 0xFFFFEAA7 };
     bool hasSamples = false;
     int sampleCount = 0;

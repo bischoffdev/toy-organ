@@ -13,7 +13,7 @@ A customizable 13-key toy organ audio plugin and standalone synthesizer (VST3, A
 
 ## Soundsets
 
-Select a soundset from the dropdown menu in the top bar. If a soundset has no samples, the built-in additive synth plays the notes.
+Select a soundset from the dropdown menu in the top bar. Keys without assigned samples display a placeholder tile and produce no sound.
 
 To add custom soundsets:
 1. Click the folder button in the top bar to open the soundsets directory (`~/Music/LaxersazOrgan/Soundsets/` on macOS/Linux, `%USERPROFILE%\Music\LaxersazOrgan\Soundsets\` on Windows).
@@ -21,6 +21,7 @@ To add custom soundsets:
    * Audio: `01.wav` to `13.wav` for each chromatic note (C4 to C5), or a single sample (e.g. `sample.wav`) pitched automatically across the octave. Supported formats: WAV, AIFF, FLAC, OGG.
    * Visuals (choose either single images or animated image sequences):
      * Single images: `idle.png` (resting mascot) and `active.png` (singing mascot).
+     * Optional custom placeholder: `placeholder.png` (or `missing.png` / `empty.png`) displayed on any key lacking an audio sample.
      * Animated image sequences:
        * `idle/` folder containing sequentially numbered frames (`01.png`, `02.png`, ...) that loop continuously while idle.
        * `active/` folder containing sequentially numbered frames (`01.png`, `02.png`, ...) that animate when notes are played.

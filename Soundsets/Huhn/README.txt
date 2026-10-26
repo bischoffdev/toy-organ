@@ -28,5 +28,5 @@ In diesem Ordner liegen die beiden Bilder und die Audio-Samples:
    Tipp: Wenn du vorerst nur ein einzelnes Gacker-Sample hast, nenne es einfach
    "sample.wav" oder "gaak.wav" – das Plugin pitcht es dann automatisch über
    alle 12 Tasten!
-   Solange noch keine Audio-Dateien im Ordner sind, spielt der Toy-Organ-Synthesizer
-   automatisch den Orgelton.
+   Tasten ohne Audio-Dateien zeigen automatisch ein Platzhalter-Bild an
+   und bleiben stumm.

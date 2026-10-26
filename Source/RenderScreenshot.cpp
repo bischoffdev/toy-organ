@@ -1,11 +1,24 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-int main()
+int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI guiInit;
 
     ToyOrganAudioProcessor processor;
+    if (argc > 1)
+    {
+        juce::String targetSet = argv[1];
+        for (int i = 0; i < processor.getSoundsetNames().size(); ++i)
+        {
+            if (processor.getSoundsetNames()[i].equalsIgnoreCase (targetSet))
+            {
+                processor.loadSoundsetByIndex (i);
+                break;
+            }
+        }
+    }
+
     std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
 
     if (editor != nullptr)
@@ -16,7 +29,8 @@ int main()
         juce::Graphics g (img);
         editor->paintEntireComponent (g, true);
 
-        juce::File outputFile = juce::File::getCurrentWorkingDirectory().getChildFile ("screenshot.png");
+        juce::String outputName = (argc > 2) ? argv[2] : "screenshot.png";
+        juce::File outputFile = juce::File::getCurrentWorkingDirectory().getChildFile (outputName);
         outputFile.deleteFile();
 
         juce::FileOutputStream stream (outputFile);

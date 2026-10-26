@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Missing Sample Placeholder Graphic**: Dedicated visual placeholder rendered on any key lacking an audio sample (featuring an inner dashed drop-slot border, circular music emblem with question mark, and "NO SAMPLE" label).
+- **Custom Soundset Placeholder Support**: Soundsets can supply an optional custom `placeholder.png` (or `missing.png` / `empty.png`) to override the default empty key graphic.
+- **Muted Badges on Unassigned Keys**: Key badges for notes without audio samples adopt a subtle, muted visual style to visually distinguish populated vs. unpopulated keys at a glance.
+
+### Removed
+- **Synthetic Fallback Tone Generator**: Removed the additive oscillator so keys without audio samples produce silence instead of artificial synth tones.
+
 ## [0.1.0] - 2026-10-26
 
 ### Added

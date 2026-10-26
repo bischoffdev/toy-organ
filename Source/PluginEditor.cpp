@@ -363,17 +363,80 @@ void ToyOrganKeyView::drawVectorMascot (juce::Graphics& g, juce::Rectangle<float
     }
 }
 
+void ToyOrganKeyView::drawMissingSamplePlaceholder (juce::Graphics& g, juce::Rectangle<float> area, bool pressed)
+{
+    // 1. Soft matte gradient background
+    juce::Colour bgTop = pressed ? juce::Colour (0xFFCBD5E1) : juce::Colour (0xFFF8FAFC);
+    juce::Colour bgBot = pressed ? juce::Colour (0xFF94A3B8) : juce::Colour (0xFFE2E8F0);
+    g.setGradientFill (juce::ColourGradient (bgTop, area.getX(), area.getY(),
+                                            bgBot, area.getX(), area.getBottom(), false));
+    g.fillRoundedRectangle (area, 14.0f);
+
+    // 2. Inner dashed border to indicate an empty/unmapped slot
+    auto innerBorder = area.reduced (6.0f);
+    juce::Path borderPath;
+    borderPath.addRoundedRectangle (innerBorder, 10.0f);
+    juce::PathStrokeType stroke (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+    const float dashes[] = { 4.0f, 4.0f };
+    juce::Path dashedPath;
+    stroke.createDashedStroke (dashedPath, borderPath, dashes, 2);
+    g.setColour (pressed ? juce::Colour (0xFF64748B) : juce::Colour (0x6094A3B8));
+    g.fillPath (dashedPath);
+
+    float cx = area.getCentreX();
+    float cy = area.getCentreY() - 7.0f;
+
+    // 3. Central circular emblem
+    float circleR = 19.0f;
+    g.setColour (pressed ? juce::Colour (0x25000000) : juce::Colour (0x10000000));
+    g.fillEllipse (cx - circleR, cy - circleR + 2.0f, circleR * 2.0f, circleR * 2.0f);
+
+    g.setColour (pressed ? juce::Colour (0xFFE2E8F0) : juce::Colours::white);
+    g.fillEllipse (cx - circleR, cy - circleR, circleR * 2.0f, circleR * 2.0f);
+
+    g.setColour (pressed ? juce::Colour (0xFF94A3B8) : juce::Colour (0xFFCBD5E1));
+    g.drawEllipse (cx - circleR, cy - circleR, circleR * 2.0f, circleR * 2.0f, 1.2f);
+
+    // 4. Stylized musical eighth-note with a question mark
+    juce::Colour iconCol = pressed ? juce::Colour (0xFF475569) : juce::Colour (0xFF64748B);
+    g.setColour (iconCol);
+
+    // Note head (rotated ellipse)
+    {
+        juce::Graphics::ScopedSaveState noteState (g);
+        g.addTransform (juce::AffineTransform::rotation (-0.35f, cx - 4.0f, cy + 5.0f));
+        g.fillEllipse (cx - 9.0f, cy + 2.0f, 9.0f, 6.5f);
+    }
+
+    // Note stem
+    g.drawLine (cx - 1.5f, cy + 5.0f, cx - 1.5f, cy - 8.0f, 2.0f);
+
+    // Note flag (curling to the right)
+    juce::Path flag;
+    flag.startNewSubPath (cx - 1.5f, cy - 8.0f);
+    flag.quadraticTo (cx + 5.0f, cy - 7.0f, cx + 6.0f, cy - 1.0f);
+    flag.quadraticTo (cx + 3.0f, cy - 4.0f, cx - 1.5f, cy - 4.5f);
+    flag.closeSubPath();
+    g.fillPath (flag);
+
+    // Accent question mark next to the note
+    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.setColour (pressed ? juce::Colour (0xFFEA580C) : juce::Colour (0xFFF97316));
+    g.drawText ("?", juce::Rectangle<float> (cx + 3.5f, cy - 8.0f, 13.0f, 14.0f), juce::Justification::centred, false);
+
+    // 5. Clean micro-badge text "NO SAMPLE" below the emblem
+    g.setFont (juce::FontOptions (8.5f, juce::Font::bold));
+    g.setColour (pressed ? juce::Colour (0xFF334155) : juce::Colour (0xFF64748B));
+    auto textRect = juce::Rectangle<float> (area.getX() + 6.0f, cy + circleR + 5.0f, area.getWidth() - 12.0f, 16.0f);
+    g.drawText ("NO SAMPLE", textRect, juce::Justification::centred, false);
+}
+
 void ToyOrganKeyView::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
     const auto& slot = processor.getKeySlots()[(size_t) slotIndex];
     const auto& soundset = processor.getCurrentSoundset();
-
-    juce::Image imgToDraw;
-    if (isPressed)
-        imgToDraw = soundset.getActiveFrame (pressTicks / 3);
-    else
-        imgToDraw = soundset.getIdleFrame ((globalAnimTick + slotIndex * 8) / 4);
+    bool hasSample = processor.hasSampleForNote (slot.noteNumber);
 
     float labelH = 20.0f;
     float gap = 3.0f;
@@ -396,38 +459,74 @@ void ToyOrganKeyView::paint (juce::Graphics& g)
     }
 
     // Soft drop shadow under the image
-    g.setColour (juce::Colour (0x25000000));
+    g.setColour (juce::Colour (hasSample ? 0x25000000 : 0x15000000));
     g.fillRoundedRectangle (imgRect.translated (0.0f, 3.0f), 14.0f);
 
-    // Draw the image (opaque, spanning the image rect)
+    if (hasSample)
     {
-        juce::Graphics::ScopedSaveState state (g);
-        juce::Path clipPath;
-        clipPath.addRoundedRectangle (imgRect, 14.0f);
-        g.reduceClipRegion (clipPath);
-
-        // Opaque backing prevents background or overlap bleed-through
-        g.setColour (juce::Colours::white);
-        g.setOpacity (1.0f);
-        g.fillRoundedRectangle (imgRect, 14.0f);
-
-        if (imgToDraw.isValid())
-        {
-            g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
-            g.drawImage (imgToDraw, imgRect, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
-        }
+        juce::Image imgToDraw;
+        if (isPressed)
+            imgToDraw = soundset.getActiveFrame (pressTicks / 3);
         else
-        {
-            g.setColour (juce::Colour (0xFFE2E8F0));
-            g.fillRoundedRectangle (imgRect, 14.0f);
-            drawVectorMascot (g, imgRect, isPressed);
-        }
-    }
+            imgToDraw = soundset.getIdleFrame ((globalAnimTick + slotIndex * 8) / 4);
 
-    // Border around the image (orange when pressed, subtle white/semi-transparent when idle)
-    g.setOpacity (1.0f);
-    g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x60FFFFFF));
-    g.drawRoundedRectangle (imgRect, 14.0f, isPressed ? 2.5f : 1.5f);
+        // Draw the image (opaque, spanning the image rect)
+        {
+            juce::Graphics::ScopedSaveState state (g);
+            juce::Path clipPath;
+            clipPath.addRoundedRectangle (imgRect, 14.0f);
+            g.reduceClipRegion (clipPath);
+
+            // Opaque backing prevents background or overlap bleed-through
+            g.setColour (juce::Colours::white);
+            g.setOpacity (1.0f);
+            g.fillRoundedRectangle (imgRect, 14.0f);
+
+            if (imgToDraw.isValid())
+            {
+                g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
+                g.drawImage (imgToDraw, imgRect, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
+            }
+            else
+            {
+                g.setColour (juce::Colour (0xFFE2E8F0));
+                g.fillRoundedRectangle (imgRect, 14.0f);
+                drawVectorMascot (g, imgRect, isPressed);
+            }
+        }
+
+        // Border around the image (orange when pressed, subtle white/semi-transparent when idle)
+        g.setOpacity (1.0f);
+        g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x60FFFFFF));
+        g.drawRoundedRectangle (imgRect, 14.0f, isPressed ? 2.5f : 1.5f);
+    }
+    else
+    {
+        // Missing sample: render placeholder image
+        {
+            juce::Graphics::ScopedSaveState state (g);
+            juce::Path clipPath;
+            clipPath.addRoundedRectangle (imgRect, 14.0f);
+            g.reduceClipRegion (clipPath);
+
+            if (soundset.placeholderImage.isValid())
+            {
+                g.setColour (juce::Colours::white);
+                g.fillRoundedRectangle (imgRect, 14.0f);
+                g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
+                g.drawImage (soundset.placeholderImage, imgRect, juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
+            }
+            else
+            {
+                drawMissingSamplePlaceholder (g, imgRect, isPressed);
+            }
+        }
+
+        // Border around the placeholder
+        g.setOpacity (1.0f);
+        g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x4064748B));
+        g.drawRoundedRectangle (imgRect, 14.0f, isPressed ? 2.0f : 1.5f);
+    }
 
     // Note badge (clean note name, e.g. "C", "C#")
     juce::String badgeText = slot.keyName;
@@ -438,15 +537,31 @@ void ToyOrganKeyView::paint (juce::Graphics& g)
                                              labelRect.getCentreY() - badgeH * 0.5f,
                                              badgeW, badgeH);
 
-    g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0xF0FFFFFF));
-    g.fillRoundedRectangle (badgeRect, 5.0f);
+    if (hasSample)
+    {
+        g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0xF0FFFFFF));
+        g.fillRoundedRectangle (badgeRect, 5.0f);
 
-    g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x20000000));
-    g.drawRoundedRectangle (badgeRect, 5.0f, 1.0f);
+        g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x20000000));
+        g.drawRoundedRectangle (badgeRect, 5.0f, 1.0f);
 
-    g.setFont (juce::FontOptions (isAccidental ? 10.5f : 11.5f, juce::Font::bold));
-    g.setColour (isPressed ? juce::Colours::white : juce::Colour (0xFF0D1926));
-    g.drawText (badgeText, badgeRect, juce::Justification::centred, false);
+        g.setFont (juce::FontOptions (isAccidental ? 10.5f : 11.5f, juce::Font::bold));
+        g.setColour (isPressed ? juce::Colours::white : juce::Colour (0xFF0D1926));
+        g.drawText (badgeText, badgeRect, juce::Justification::centred, false);
+    }
+    else
+    {
+        // Muted badge for missing sample note
+        g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0xB0F1F5F9));
+        g.fillRoundedRectangle (badgeRect, 5.0f);
+
+        g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x4094A3B8));
+        g.drawRoundedRectangle (badgeRect, 5.0f, 1.0f);
+
+        g.setFont (juce::FontOptions (isAccidental ? 10.5f : 11.5f, juce::Font::bold));
+        g.setColour (isPressed ? juce::Colours::white : juce::Colour (0xFF64748B));
+        g.drawText (badgeText, badgeRect, juce::Justification::centred, false);
+    }
 }
 
 //==============================================================================
