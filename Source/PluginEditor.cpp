@@ -429,13 +429,10 @@ void ToyOrganKeyView::paint (juce::Graphics& g)
     g.setColour (isPressed ? juce::Colour (0xFFFF7F00) : juce::Colour (0x60FFFFFF));
     g.drawRoundedRectangle (imgRect, 14.0f, isPressed ? 2.5f : 1.5f);
 
-    // Note badge with keyboard shortcut hint (e.g. "C [A]", "C# [W]")
-    auto shortcut = processor.getShortcutForSlot (slotIndex);
+    // Note badge (clean note name, e.g. "C", "C#")
     juce::String badgeText = slot.keyName;
-    if (shortcut.isNotEmpty())
-        badgeText << " [" << shortcut << "]";
 
-    float badgeW = isAccidental ? 42.0f : 46.0f;
+    float badgeW = isAccidental ? 32.0f : 28.0f;
     float badgeH = 18.0f;
     auto badgeRect = juce::Rectangle<float> (labelRect.getCentreX() - badgeW * 0.5f,
                                              labelRect.getCentreY() - badgeH * 0.5f,
@@ -538,16 +535,6 @@ ToyOrganAudioProcessorEditor::ToyOrganAudioProcessorEditor (ToyOrganAudioProcess
         audioProcessor.openSoundsetsFolder();
     };
     addAndMakeVisible (openFolderButton);
-
-    refreshButton.onClick = [this]()
-    {
-        audioProcessor.scanForSoundsets();
-        populateSoundsets();
-        for (auto& kv : keyViews)
-            kv->repaint();
-        repaint();
-    };
-    addAndMakeVisible (refreshButton);
 
     // 3. Header Right: Keyboard layout selector & Master Volume
     layoutComboBox.addItem ("QWERTY", 1);
@@ -687,15 +674,16 @@ void ToyOrganAudioProcessorEditor::resized()
     int rightBoundary = layoutComboBox.getX() - 10;
 
     // -------------------------------------------------------------------------
-    // 3. Header Center: Soundset Preset Bar (< [Name] > [📁] [↻])
+    // -------------------------------------------------------------------------
+    // 3. Header Center: Soundset Preset Bar (< [Name] > [📁])
     // -------------------------------------------------------------------------
     int btnW = 26;
     int btnGap = 3;
-    int fixedBarW = btnW + btnGap + btnGap + btnW + 5 + btnW + btnGap + btnW; // 4 buttons + spacing = 118px
+    int fixedBarW = btnW + btnGap + btnGap + btnW + 5 + btnW; // 3 buttons: prev, next, folder
 
     int availableForBar = rightBoundary - leftBoundary;
     int maxComboW = availableForBar - fixedBarW - 12;
-    int comboW = juce::jlimit (85, 135, maxComboW);
+    int comboW = juce::jlimit (90, 155, maxComboW);
 
     int centerBarW = fixedBarW + comboW;
     int centerStartX = (w - centerBarW) / 2;
@@ -710,7 +698,6 @@ void ToyOrganAudioProcessorEditor::resized()
     soundsetComboBox.setBounds (prevSoundsetButton.getRight() + btnGap, 12, comboW, 30);
     nextSoundsetButton.setBounds (soundsetComboBox.getRight() + btnGap, 12, btnW, 30);
     openFolderButton.setBounds (nextSoundsetButton.getRight() + 5, 12, btnW, 30);
-    refreshButton.setBounds (openFolderButton.getRight() + btnGap, 12, btnW, 30);
 
     // -------------------------------------------------------------------------
     // 4. Lower Area: Two Rows of Mascot Piano Keys
@@ -832,6 +819,13 @@ bool ToyOrganAudioProcessorEditor::keyStateChanged (bool isKeyDown)
     juce::ignoreUnused (isKeyDown);
     updateComputerKeyboardNotes();
     return true;
+}
+
+void ToyOrganAudioProcessorEditor::focusGained (FocusChangeType cause)
+{
+    juce::ignoreUnused (cause);
+    audioProcessor.scanForSoundsets();
+    populateSoundsets();
 }
 
 void ToyOrganAudioProcessorEditor::focusLost (FocusChangeType)

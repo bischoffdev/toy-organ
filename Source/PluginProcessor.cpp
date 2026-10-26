@@ -551,6 +551,10 @@ void ToyOrganAudioProcessor::openSoundsetsFolder()
 
 void ToyOrganAudioProcessor::scanForSoundsets()
 {
+    juce::String previousSoundsetName = currentSoundset.name;
+    if (previousSoundsetName.isEmpty() && currentSoundsetIndex >= 0 && currentSoundsetIndex < (int) detectedSoundsetFolders.size())
+        previousSoundsetName = detectedSoundsetFolders[(size_t) currentSoundsetIndex].getFileName();
+
     detectedSoundsetFolders.clear();
     soundsetNames.clear();
 
@@ -628,7 +632,19 @@ void ToyOrganAudioProcessor::scanForSoundsets()
     }
     else
     {
-        loadSoundsetByIndex (0);
+        int targetIndex = 0;
+        if (previousSoundsetName.isNotEmpty())
+        {
+            for (int i = 0; i < (int) detectedSoundsetFolders.size(); ++i)
+            {
+                if (detectedSoundsetFolders[(size_t) i].getFileName().equalsIgnoreCase (previousSoundsetName))
+                {
+                    targetIndex = i;
+                    break;
+                }
+            }
+        }
+        loadSoundsetByIndex (targetIndex);
     }
 }
 

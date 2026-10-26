@@ -101,6 +101,7 @@ public:
     // Musical typing via computer keyboard
     bool keyPressed (const juce::KeyPress& key) override;
     bool keyStateChanged (bool isKeyDown) override;
+    void focusGained (FocusChangeType cause) override;
     void focusLost (FocusChangeType cause) override;
 
 private:
@@ -121,7 +122,6 @@ private:
     juce::ComboBox soundsetComboBox;
     ToyOrganIconButton nextSoundsetButton { ToyOrganIconButton::IconType::Next, "Nächstes Soundset" };
     ToyOrganIconButton openFolderButton   { ToyOrganIconButton::IconType::Folder, "Soundsets-Ordner öffnen" };
-    ToyOrganIconButton refreshButton      { ToyOrganIconButton::IconType::Reload, "Soundsets neu laden" };
 
     // Header controls - Right
     juce::ComboBox layoutComboBox;
